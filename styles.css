@@ -639,6 +639,17 @@ main,
   gap: 0.8rem;
 }
 
+.paypal-wrap {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.paypal-note,
+.paypal-empty {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 .cart-note {
   font-size: 0.8rem;
   color: var(--muted);

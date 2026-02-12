@@ -1,5 +1,7 @@
 const SUPABASE_URL = "https://wuxhbmqvawwkkphveaxc.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eGhibXF2YXd3a2twaHZlYXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTIxODQsImV4cCI6MjA4NjQ2ODE4NH0.JUbr-P_qcKLXWV_1LXNewfaZUIb_ngrW3gUmuIc-e2g";
+const PAYPAL_CLIENT_ID = "";
+const PAYPAL_CURRENCY = "USD";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -132,6 +134,7 @@ const elements = {
   bundleSummary: document.getElementById("bundleSummary"),
   supabaseStatus: document.getElementById("supabaseStatus"),
   setupModal: document.getElementById("setupModal"),
+  paypalButtons: document.getElementById("paypalButtons"),
 };
 
 function formatPrice(value) {
@@ -158,6 +161,19 @@ function saveCart() {
 function updateCartCount() {
   const count = Object.values(state.cart).reduce((sum, item) => sum + item.qty, 0);
   elements.cartCount.textContent = count;
+}
+
+function getCartItems() {
+  return Object.values(state.cart).map((item) => ({
+    id: item.product.id,
+    name: item.product.name,
+    price: Number(item.product.price),
+    qty: item.qty,
+  }));
+}
+
+function getCartTotal(items = getCartItems()) {
+  return items.reduce((sum, item) => sum + item.price * item.qty, 0);
 }
 
 function renderProducts() {
@@ -245,9 +261,111 @@ function renderCart() {
     })
     .join("");
 
-  const total = items.reduce((sum, item) => sum + item.product.price * item.qty, 0);
+  const total = getCartTotal();
   elements.cartTotal.textContent = formatPrice(total || 0);
   updateCartCount();
+  renderPayPalButtons();
+}
+
+function loadPayPalSdk() {
+  if (!PAYPAL_CLIENT_ID) {
+    if (elements.paypalButtons) {
+      const wrap = elements.paypalButtons.closest(".paypal-wrap");
+      if (wrap) {
+        wrap.style.display = "none";
+      }
+    }
+    return;
+  }
+
+  if (elements.paypalButtons) {
+    const wrap = elements.paypalButtons.closest(".paypal-wrap");
+    if (wrap) {
+      wrap.style.display = "grid";
+    }
+  }
+
+  if (window.paypal) {
+    renderPayPalButtons();
+    return;
+  }
+
+  if (document.getElementById("paypal-sdk")) {
+    return;
+  }
+
+  const script = document.createElement("script");
+  script.id = "paypal-sdk";
+  script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture`;
+  script.addEventListener("load", renderPayPalButtons);
+  script.addEventListener("error", () => showToast("PayPal failed to load"));
+  document.head.appendChild(script);
+}
+
+function renderPayPalButtons() {
+  if (!elements.paypalButtons || !window.paypal) {
+    return;
+  }
+
+  const items = getCartItems();
+  const total = getCartTotal(items);
+
+  if (!items.length || total <= 0) {
+    elements.paypalButtons.innerHTML =
+      "<p class=\"paypal-empty\">Add items to checkout with PayPal.</p>";
+    return;
+  }
+
+  elements.paypalButtons.innerHTML = "";
+
+  window.paypal
+    .Buttons({
+      style: {
+        layout: "vertical",
+        shape: "pill",
+        color: "gold",
+        label: "paypal",
+      },
+      createOrder: async () => {
+        const response = await fetch("/.netlify/functions/paypal-create-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            currency: PAYPAL_CURRENCY,
+            items,
+            total,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || "Unable to create order");
+        }
+        return data.id;
+      },
+      onApprove: async (data) => {
+        const response = await fetch("/.netlify/functions/paypal-capture-order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ orderID: data.orderID }),
+        });
+
+        const capture = await response.json();
+        if (!response.ok) {
+          throw new Error(capture.error || "Capture failed");
+        }
+
+        state.cart = {};
+        saveCart();
+        renderCart();
+        showToast("Payment complete");
+      },
+      onError: (error) => {
+        console.error(error);
+        showToast("Payment failed");
+      },
+    })
+    .render(elements.paypalButtons);
 }
 
 function showToast(message) {
@@ -399,6 +517,7 @@ async function init() {
   renderBundle("Creator");
   renderCart();
   bindEvents();
+  loadPayPalSdk();
   initReveal();
 }
 
