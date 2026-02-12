@@ -1,0 +1,252 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Techstuf | High-performance tech for everyday missions</title>
+    <meta name="description" content="Techstuf is a curated tech store for makers, gamers, creators, and hybrid workers. Premium gear, fast shipping, and smart bundles." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <div class="page-glow"></div>
+    <div class="grain"></div>
+
+    <header class="site-header">
+      <div class="brand">
+        <div class="logo">TS</div>
+        <div class="brand-text">
+          <span>Techstuf</span>
+          <small>Netlify + Supabase storefront</small>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="#shop">Shop</a>
+        <a href="#bundles">Bundles</a>
+        <a href="#studio">Studio Picks</a>
+        <a href="#support">Support</a>
+      </nav>
+      <div class="header-actions">
+        <label class="search">
+          <span>Search</span>
+          <input id="searchInput" type="search" placeholder="Search gear" autocomplete="off" />
+        </label>
+        <button class="btn ghost" id="openCart">Cart <span id="cartCount">0</span></button>
+      </div>
+    </header>
+
+    <main>
+      <section class="hero" id="top">
+        <div class="hero-copy">
+          <p class="eyebrow">Techstuf drop 02</p>
+          <h1>Gear that keeps up with fast, ambitious work.</h1>
+          <p class="lede">
+            Curated tech essentials for builders, streamers, and studio crews. Every
+            item is tested, bundled, and stocked for the next 72 hours.
+          </p>
+          <div class="hero-actions">
+            <button class="btn primary" id="jumpShop">Shop the drop</button>
+            <button class="btn secondary" id="jumpBundles">Build a bundle</button>
+          </div>
+          <div class="hero-meta">
+            <div>
+              <strong>4.9</strong>
+              <span>avg product rating</span>
+            </div>
+            <div>
+              <strong>36 hrs</strong>
+              <span>average delivery window</span>
+            </div>
+            <div>
+              <strong>Supabase</strong>
+              <span id="supabaseStatus">connecting...</span>
+            </div>
+          </div>
+        </div>
+        <div class="hero-visual">
+          <div class="device-stack">
+            <div class="device-card">
+              <span class="tag">Creator kit</span>
+              <h3>Pulse Audio Deck</h3>
+              <p>Balanced audio, instant voice isolation.</p>
+              <div class="chip-row">
+                <span>24-bit</span>
+                <span>USB-C</span>
+                <span>Zero-latency</span>
+              </div>
+            </div>
+            <div class="device-card">
+              <span class="tag">Pro build</span>
+              <h3>Stratus GPU Dock</h3>
+              <p>Desktop-class power without the tower.</p>
+              <div class="chip-row">
+                <span>Thunderbolt</span>
+                <span>Dual fan</span>
+              </div>
+            </div>
+            <div class="device-card">
+              <span class="tag">Desk flow</span>
+              <h3>Arc Halo Monitor</h3>
+              <p>Wide, warm, color-accurate workspace.</p>
+              <div class="chip-row">
+                <span>38" ultra-wide</span>
+                <span>HDR10+</span>
+              </div>
+            </div>
+          </div>
+          <div class="hero-badge">
+            <span>Weekend</span>
+            <strong>Drop</strong>
+          </div>
+        </div>
+      </section>
+
+      <section class="signal" id="shop" data-reveal>
+        <div>
+          <h2>Shop the Techstuf floor</h2>
+          <p>Every item is verified for build quality, firmware support, and creator-friendly return windows.</p>
+        </div>
+        <div class="filter-bar" id="filterBar"></div>
+      </section>
+
+      <section class="product-grid" id="productGrid"></section>
+
+      <section class="bundles" id="bundles" data-reveal>
+        <div class="bundle-card">
+          <div>
+            <h2>Bundle builder</h2>
+            <p>Pick a focus. We stack complementary gear with shared color temperature, cable standards, and power needs.</p>
+          </div>
+          <div class="bundle-options">
+            <button class="bundle" data-bundle="Creator">Creator Studio</button>
+            <button class="bundle" data-bundle="Gaming">Latency Killer</button>
+            <button class="bundle" data-bundle="Remote">Remote Command</button>
+            <button class="bundle" data-bundle="Mobile">Mobile Vault</button>
+          </div>
+          <div class="bundle-summary" id="bundleSummary">
+            Choose a bundle to see the kit.
+          </div>
+        </div>
+        <div class="bundle-card gradient">
+          <h3>Supabase-ready catalog</h3>
+          <p>
+            Sync inventory, pricing, and product images directly from your Supabase
+            table. Netlify deploys the storefront in seconds.
+          </p>
+          <ul>
+            <li>Live stock status and pricing</li>
+            <li>Customer favorites + ratings</li>
+            <li>Cart persistence in local storage</li>
+          </ul>
+          <button class="btn ghost" id="viewSetup">View setup notes</button>
+        </div>
+      </section>
+
+      <section class="studio" id="studio" data-reveal>
+        <div class="studio-left">
+          <h2>Studio picks for relentless creators.</h2>
+          <p>
+            We blend tactile controls with quiet performance. Build a rig that looks
+            clean on camera and feels even better off it.
+          </p>
+          <div class="studio-list">
+            <div>
+              <h4>Sound + stream</h4>
+              <p>Mixers, microphones, and voice isolation gear.</p>
+            </div>
+            <div>
+              <h4>Desk command</h4>
+              <p>Monitors, light bars, and productivity controllers.</p>
+            </div>
+            <div>
+              <h4>Compute muscle</h4>
+              <p>Docking stations, thermal modules, and NAS kits.</p>
+            </div>
+          </div>
+        </div>
+        <div class="studio-right">
+          <div class="studio-panel">
+            <h3>Shipment rhythm</h3>
+            <p>Daily restocks at 10:00 and 16:00 UTC. Most orders ship same day.</p>
+            <div class="progress">
+              <span style="width: 72%"></span>
+            </div>
+          </div>
+          <div class="studio-panel">
+            <h3>Community feedback</h3>
+            <p>Requests and spec changes flow straight into the Supabase backlog.</p>
+            <div class="avatar-row">
+              <span>MK</span>
+              <span>JS</span>
+              <span>TR</span>
+              <span>AL</span>
+              <span>+4</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="support" id="support" data-reveal>
+        <div class="support-card">
+          <h2>Need help tuning a rig?</h2>
+          <p>Tech advisors run live chat every day. We answer within 12 minutes.</p>
+          <button class="btn primary">Start live chat</button>
+        </div>
+        <div class="support-card light">
+          <h3>Get the signal update</h3>
+          <p>Weekly drops, open-box deals, and exclusive kits.</p>
+          <form id="newsletter">
+            <input type="email" placeholder="you@studio.com" required />
+            <button class="btn secondary" type="submit">Join</button>
+          </form>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div>
+        <strong>Techstuf</strong>
+        <p>Future-ready gear, shipped fast.</p>
+      </div>
+      <div>
+        <span>Secure checkout</span>
+        <span>30-day returns</span>
+        <span>Studio pricing</span>
+      </div>
+    </footer>
+
+    <aside class="cart" id="cartDrawer" aria-hidden="true">
+      <div class="cart-header">
+        <h3>Your cart</h3>
+        <button class="btn ghost" id="closeCart">Close</button>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-footer">
+        <div class="cart-total">
+          <span>Subtotal</span>
+          <strong id="cartTotal">$0</strong>
+        </div>
+        <button class="btn primary">Checkout</button>
+        <p class="cart-note">Taxes and shipping calculated at checkout.</p>
+      </div>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="toast" id="toast">Added to cart</div>
+    <div class="setup-modal" id="setupModal" aria-hidden="true">
+      <div class="setup-content">
+        <h3>Supabase setup notes</h3>
+        <ol>
+          <li>Create a `products` table with columns: name, category, price, rating, badge, description, image_hue.</li>
+          <li>Enable RLS and add a public read policy for active products.</li>
+          <li>Fill `SUPABASE_URL` and `SUPABASE_ANON_KEY` in app.js to connect.</li>
+        </ol>
+        <button class="btn secondary" id="closeSetup">Got it</button>
+      </div>
+    </div>
+  </body>
+</html>
