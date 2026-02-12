@@ -135,7 +135,31 @@ const elements = {
   supabaseStatus: document.getElementById("supabaseStatus"),
   setupModal: document.getElementById("setupModal"),
   paypalButtons: document.getElementById("paypalButtons"),
+  buyerRegister: document.getElementById("buyerRegister"),
+  buyerLogin: document.getElementById("buyerLogin"),
+  buyerStatus: document.getElementById("buyerStatus"),
+  adminRegister: document.getElementById("adminRegister"),
+  adminLogin: document.getElementById("adminLogin"),
+  adminStatus: document.getElementById("adminStatus"),
+  ownerLogin: document.getElementById("ownerLogin"),
+  ownerStatus: document.getElementById("ownerStatus"),
+  logoutBtn: document.getElementById("logoutBtn"),
 };
+
+let supabaseClient = null;
+
+function getSupabaseClient() {
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+
+  if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return null;
+  }
+
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return supabaseClient;
+}
 
 function formatPrice(value) {
   return new Intl.NumberFormat("en-US", {
@@ -176,6 +200,126 @@ function getCartTotal(items = getCartItems()) {
   return items.reduce((sum, item) => sum + item.price * item.qty, 0);
 }
 
+function setStatus(element, message) {
+  if (!element) return;
+  element.textContent = message;
+}
+
+async function getUserRole(userId) {
+  const client = getSupabaseClient();
+  if (!client || !userId) return null;
+
+  const { data, error } = await client.from("profiles").select("role").eq("id", userId).single();
+  if (error || !data) {
+    return null;
+  }
+  return data.role;
+}
+
+async function refreshAuthStatus() {
+  const client = getSupabaseClient();
+  if (!client) {
+    setStatus(elements.buyerStatus, "Auth not configured.");
+    setStatus(elements.adminStatus, "Auth not configured.");
+    setStatus(elements.ownerStatus, "Auth not configured.");
+    return;
+  }
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+
+  if (!session?.user) {
+    setStatus(elements.buyerStatus, "Not signed in.");
+    setStatus(elements.adminStatus, "Admin access requires approval.");
+    setStatus(elements.ownerStatus, "Owner access only.");
+    return;
+  }
+
+  const user = session.user;
+  const role = (await getUserRole(user.id)) || "buyer";
+  setStatus(elements.buyerStatus, `Signed in as ${user.email}.`);
+
+  if (role === "owner") {
+    setStatus(elements.adminStatus, "Admin access approved.");
+    setStatus(elements.ownerStatus, "Owner access granted.");
+  } else if (role === "admin") {
+    setStatus(elements.adminStatus, "Admin access approved.");
+    setStatus(elements.ownerStatus, "Owner access only.");
+  } else {
+    setStatus(elements.adminStatus, "Admin access pending owner approval.");
+    setStatus(elements.ownerStatus, "Owner access only.");
+  }
+}
+
+async function signUpUser(email, password, metadata) {
+  const client = getSupabaseClient();
+  if (!client) {
+    showToast("Supabase auth not configured");
+    return null;
+  }
+
+  const { data, error } = await client.auth.signUp({
+    email,
+    password,
+    options: {
+      data: metadata || {},
+    },
+  });
+
+  if (error) {
+    showToast(error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function signInUser(email, password) {
+  const client = getSupabaseClient();
+  if (!client) {
+    showToast("Supabase auth not configured");
+    return null;
+  }
+
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error) {
+    showToast(error.message);
+    return null;
+  }
+
+  return data;
+}
+
+async function requestAdminAccess(reason) {
+  const client = getSupabaseClient();
+  if (!client) {
+    showToast("Supabase auth not configured");
+    return;
+  }
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  if (!session?.user) {
+    showToast("Sign in first to request admin access");
+    return;
+  }
+
+  const payload = {
+    user_id: session.user.id,
+    email: session.user.email,
+    reason: reason || "Admin access requested",
+    status: "pending",
+  };
+
+  const { error } = await client.from("admin_requests").insert(payload);
+  if (error) {
+    showToast("Admin request not saved. Check admin_requests table and policies.");
+    return;
+  }
+
+  showToast("Admin request submitted");
+  refreshAuthStatus();
+}
 function renderProducts() {
   elements.grid.innerHTML = state.filtered
     .map((product) => {
@@ -423,13 +567,26 @@ function renderBundle(bundle) {
   elements.bundleSummary.innerHTML = `<strong>${bundle} kit</strong><br />${items}`;
 }
 
+function initAuth() {
+  const client = getSupabaseClient();
+  if (!client) {
+    refreshAuthStatus();
+    return;
+  }
+
+  client.auth.onAuthStateChange(() => {
+    refreshAuthStatus();
+  });
+  refreshAuthStatus();
+}
+
 async function loadSupabaseProducts() {
-  if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  const client = getSupabaseClient();
+  if (!client) {
     elements.supabaseStatus.textContent = "local demo";
     return null;
   }
 
-  const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const { data, error } = await client.from("products").select("*").limit(50);
 
   if (error || !data) {
@@ -506,6 +663,95 @@ function bindEvents() {
 
   document.getElementById("viewSetup").addEventListener("click", openSetup);
   document.getElementById("closeSetup").addEventListener("click", closeSetup);
+
+  if (elements.buyerRegister) {
+    elements.buyerRegister.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const email = String(formData.get("email") || "").trim();
+      const password = String(formData.get("password") || "");
+      const result = await signUpUser(email, password, { role: "buyer" });
+      if (result) {
+        showToast("Buyer account created. Check email to confirm.");
+        event.target.reset();
+        refreshAuthStatus();
+      }
+    });
+  }
+
+  if (elements.buyerLogin) {
+    elements.buyerLogin.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const email = String(formData.get("email") || "").trim();
+      const password = String(formData.get("password") || "");
+      const result = await signInUser(email, password);
+      if (result) {
+        showToast("Buyer login successful");
+        event.target.reset();
+        refreshAuthStatus();
+      }
+    });
+  }
+
+  if (elements.adminRegister) {
+    elements.adminRegister.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const email = String(formData.get("email") || "").trim();
+      const password = String(formData.get("password") || "");
+      const reason = String(formData.get("reason") || "").trim();
+      const result = await signUpUser(email, password, { role: "admin_request" });
+      if (result) {
+        showToast("Admin account created. Requesting approval.");
+        await requestAdminAccess(reason);
+        event.target.reset();
+      }
+    });
+  }
+
+  if (elements.adminLogin) {
+    elements.adminLogin.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const email = String(formData.get("email") || "").trim();
+      const password = String(formData.get("password") || "");
+      const result = await signInUser(email, password);
+      if (result) {
+        showToast("Admin login successful");
+        event.target.reset();
+        refreshAuthStatus();
+      }
+    });
+  }
+
+  if (elements.ownerLogin) {
+    elements.ownerLogin.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const email = String(formData.get("email") || "").trim();
+      const password = String(formData.get("password") || "");
+      const result = await signInUser(email, password);
+      if (result) {
+        showToast("Owner login successful");
+        event.target.reset();
+        refreshAuthStatus();
+      }
+    });
+  }
+
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener("click", async () => {
+      const client = getSupabaseClient();
+      if (!client) {
+        showToast("Supabase auth not configured");
+        return;
+      }
+      await client.auth.signOut();
+      refreshAuthStatus();
+      showToast("Signed out");
+    });
+  }
 }
 
 async function init() {
@@ -518,6 +764,7 @@ async function init() {
   renderCart();
   bindEvents();
   loadPayPalSdk();
+  initAuth();
   initReveal();
 }
 

@@ -468,6 +468,60 @@ main,
   align-items: center;
 }
 
+.auth {
+  padding: 2rem 8vw 4rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.6rem;
+}
+
+.auth-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius);
+  padding: 2rem;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-card.highlight {
+  background: linear-gradient(140deg, rgba(12, 18, 21, 0.9), rgba(16, 31, 33, 0.85));
+  color: #ffffff;
+}
+
+.auth-card form {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.auth-card input,
+.auth-card textarea {
+  border-radius: 16px;
+  border: 1px solid rgba(12, 18, 21, 0.1);
+  padding: 0.65rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  resize: vertical;
+}
+
+.auth-card.highlight input,
+.auth-card.highlight textarea {
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.auth-status {
+  font-size: 0.85rem;
+  color: var(--muted);
+  background: rgba(12, 18, 21, 0.05);
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+}
+
+.auth-card.highlight .auth-status {
+  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .studio-left h2 {
   font-family: "Space Grotesk", sans-serif;
   font-size: 2.1rem;

@@ -28,6 +28,7 @@
         <a href="#shop">Shop</a>
         <a href="#bundles">Bundles</a>
         <a href="#studio">Studio Picks</a>
+        <a href="#account">Account</a>
         <a href="#support">Support</a>
       </nav>
       <div class="header-actions">
@@ -187,6 +188,51 @@
               <span>+4</span>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="auth" id="account" data-reveal>
+        <div class="auth-card">
+          <h2>Buyer account</h2>
+          <p>Create an account to track orders and speed up checkout.</p>
+          <form id="buyerRegister">
+            <input type="email" name="email" placeholder="Email address" required />
+            <input type="password" name="password" placeholder="Create password" minlength="6" required />
+            <button class="btn secondary" type="submit">Create buyer account</button>
+          </form>
+          <form id="buyerLogin">
+            <input type="email" name="email" placeholder="Email address" required />
+            <input type="password" name="password" placeholder="Password" required />
+            <button class="btn ghost" type="submit">Buyer login</button>
+          </form>
+          <div class="auth-status" id="buyerStatus">Not signed in.</div>
+        </div>
+        <div class="auth-card">
+          <h2>Admin access</h2>
+          <p>Admins need owner approval before accessing management tools.</p>
+          <form id="adminRegister">
+            <input type="email" name="email" placeholder="Admin email" required />
+            <input type="password" name="password" placeholder="Create password" minlength="6" required />
+            <textarea name="reason" rows="3" placeholder="Why do you need admin access?"></textarea>
+            <button class="btn secondary" type="submit">Request admin account</button>
+          </form>
+          <form id="adminLogin">
+            <input type="email" name="email" placeholder="Admin email" required />
+            <input type="password" name="password" placeholder="Password" required />
+            <button class="btn ghost" type="submit">Admin login</button>
+          </form>
+          <div class="auth-status" id="adminStatus">Admin access requires approval.</div>
+        </div>
+        <div class="auth-card highlight">
+          <h2>Owner login</h2>
+          <p>Owner accounts are created in Supabase Auth and approved manually.</p>
+          <form id="ownerLogin">
+            <input type="email" name="email" placeholder="Owner email" required />
+            <input type="password" name="password" placeholder="Password" required />
+            <button class="btn primary" type="submit">Owner login</button>
+          </form>
+          <button class="btn ghost" id="logoutBtn" type="button">Sign out</button>
+          <div class="auth-status" id="ownerStatus">Owner access only.</div>
         </div>
       </section>
 
