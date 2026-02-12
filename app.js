@@ -1,5 +1,5 @@
-﻿const SUPABASE_URL = "";
-const SUPABASE_ANON_KEY = "";
+const SUPABASE_URL = "https://wuxhbmqvawwkkphveaxc.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Ind1eGhibXF2YXd3a2twaHZlYXhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA4OTIxODQsImV4cCI6MjA4NjQ2ODE4NH0.JUbr-P_qcKLXWV_1LXNewfaZUIb_ngrW3gUmuIc-e2g";
 
 const DEFAULT_PRODUCTS = [
   {
