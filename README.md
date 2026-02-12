@@ -7,7 +7,9 @@ This is a standalone static storefront for Techstuf (Netlify + Supabase + PayPal
 - Deploy the repo on Netlify with publish directory set to `.`.
 
 ## Supabase connection
-Fill in `SUPABASE_URL` and `SUPABASE_ANON_KEY` inside `app.js` to connect to your Supabase project.
+Supabase config is now stored in `config.js`. Update:
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
 
 Suggested `products` table columns:
 - `id` (uuid or text)
@@ -86,6 +88,9 @@ update public.profiles
 set role = 'owner'
 where email = 'kaliwill3@gmail.com';
 ```
+
+Admin/Owner login page:
+- Visit `/kali` on your Netlify site for admin + owner login.
 
 Admin approval:
 - After an admin requests access, set their role to `admin`:

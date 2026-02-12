@@ -1,4 +1,4 @@
-﻿:root {
+:root {
   color-scheme: light;
   --bg: #f2efe8;
   --ink: #0c1215;
@@ -856,3 +856,4 @@ main,
     transition-duration: 0.01ms !important;
   }
 }
+\n\n.auth-helper {\n  font-size: 0.8rem;\n  color: var(--muted);\n}\n

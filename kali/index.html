@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Techstuf | Admin & Owner Login</title>
+    <meta name="description" content="Admin and owner access for Techstuf." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="../config.js"></script>
+    <script defer src="../auth.js"></script>
+  </head>
+  <body>
+    <div class="page-glow"></div>
+    <div class="grain"></div>
+
+    <header class="site-header">
+      <div class="brand">
+        <div class="logo">TS</div>
+        <div class="brand-text">
+          <span>Techstuf</span>
+          <small>Admin & owner access</small>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="/">Back to store</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="auth" id="account">
+        <div class="auth-card">
+          <h2>Admin login</h2>
+          <p>Admins must be approved by the owner before access is granted.</p>
+          <form id="adminLogin">
+            <input type="email" name="email" placeholder="Admin email" required />
+            <input type="password" name="password" placeholder="Password" required />
+            <button class="btn secondary" type="submit">Admin login</button>
+          </form>
+          <div class="auth-status" id="adminStatus">Admin access requires approval.</div>
+          <p class="auth-helper">Need access? Request admin access on the main site.</p>
+        </div>
+        <div class="auth-card highlight">
+          <h2>Owner login</h2>
+          <p>Owner accounts are created in Supabase Auth.</p>
+          <form id="ownerLogin">
+            <input type="email" name="email" placeholder="Owner email" required />
+            <input type="password" name="password" placeholder="Password" required />
+            <button class="btn primary" type="submit">Owner login</button>
+          </form>
+          <button class="btn ghost" id="logoutBtn" type="button">Sign out</button>
+          <div class="auth-status" id="ownerStatus">Owner access only.</div>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>
