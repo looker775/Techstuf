@@ -396,6 +396,7 @@ async function init() {
   state.filtered = state.products;
   buildFilters();
   renderProducts();
+  renderBundle("Creator");
   renderCart();
   bindEvents();
   initReveal();
