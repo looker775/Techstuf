@@ -14,7 +14,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js?v=20260213h"></script>
     <script defer src="../../i18n.js?v=20260213n"></script>
-    <script defer src="../../owner.js?v=20260213o"></script>
+    <script defer src="../../owner.js?v=20260213p"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -230,6 +230,27 @@
 
         <div class="dashboard-panel">
           <div class="panel-header">
+            <h3>Manage categories</h3>
+            <p>Edit or remove categories.</p>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="categoryList"></tbody>
+            </table>
+          </div>
+          <div class="auth-status" id="categoryManageStatus">Awaiting input.</div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
             <h3>Create subcategory (owner)</h3>
             <p>Attach a subcategory to a category.</p>
           </div>
@@ -242,6 +263,28 @@
             <button class="btn secondary" type="submit">Add subcategory</button>
             <div class="auth-status" id="subcategoryStatus">Awaiting input.</div>
           </form>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Manage subcategories</h3>
+            <p>Edit or remove subcategories.</p>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Description</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="subcategoryList"></tbody>
+            </table>
+          </div>
+          <div class="auth-status" id="subcategoryManageStatus">Awaiting input.</div>
         </div>
 
         <div class="dashboard-panel">

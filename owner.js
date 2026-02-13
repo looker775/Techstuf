@@ -47,6 +47,10 @@ const elements = {
   categoryStatus: document.getElementById("categoryStatus"),
   subcategoryForm: document.getElementById("subcategoryForm"),
   subcategoryStatus: document.getElementById("subcategoryStatus"),
+  categoryList: document.getElementById("categoryList"),
+  subcategoryList: document.getElementById("subcategoryList"),
+  categoryManageStatus: document.getElementById("categoryManageStatus"),
+  subcategoryManageStatus: document.getElementById("subcategoryManageStatus"),
   productCategorySelect: document.getElementById("productCategorySelect"),
   productSubcategorySelect: document.getElementById("productSubcategorySelect"),
   subcategoryCategorySelect: document.getElementById("subcategoryCategorySelect"),
@@ -110,6 +114,15 @@ function setText(element, message) {
 function setHidden(element, hidden) {
   if (!element) return;
   element.hidden = hidden;
+}
+
+function setManageStatus(element, message) {
+  if (!element) return;
+  element.textContent = message;
+}
+
+function escapeAttr(value) {
+  return String(value || "").replace(/"/g, "&quot;");
 }
 
 function formatDate(value) {
@@ -766,6 +779,191 @@ async function handleCategorySubmit(event) {
   await refreshCatalogLists();
 }
 
+async function loadManageCategories() {
+  if (!elements.categoryList) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from("categories")
+    .select("id, name, description, active")
+    .order("name", { ascending: true });
+
+  if (error) {
+    setManageStatus(elements.categoryManageStatus, `Failed: ${error.message}`);
+    elements.categoryList.innerHTML = "";
+    return;
+  }
+
+  const categories = data || [];
+  if (!categories.length) {
+    elements.categoryList.innerHTML = "<tr><td colspan=\"4\">No categories yet.</td></tr>";
+    setManageStatus(elements.categoryManageStatus, "No categories yet.");
+    return;
+  }
+
+  elements.categoryList.innerHTML = categories
+    .map(
+      (category) => `
+        <tr data-id="${category.id}">
+          <td><input class="table-input" type="text" value="${escapeAttr(category.name)}" /></td>
+          <td><input class="table-input" type="text" value="${escapeAttr(category.description || "")}" /></td>
+          <td><input type="checkbox" ${category.active ? "checked" : ""} /></td>
+          <td class="table-actions">
+            <button class="action-btn approve" data-action="save">Save</button>
+            <button class="action-btn reject" data-action="delete">Delete</button>
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+
+  setManageStatus(elements.categoryManageStatus, "Loaded.");
+}
+
+async function loadManageSubcategories() {
+  if (!elements.subcategoryList) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from("subcategories")
+    .select("id, name, description, active, category_id")
+    .order("name", { ascending: true });
+
+  if (error) {
+    setManageStatus(elements.subcategoryManageStatus, `Failed: ${error.message}`);
+    elements.subcategoryList.innerHTML = "";
+    return;
+  }
+
+  const subs = data || [];
+  if (!subs.length) {
+    elements.subcategoryList.innerHTML = "<tr><td colspan=\"5\">No subcategories yet.</td></tr>";
+    setManageStatus(elements.subcategoryManageStatus, "No subcategories yet.");
+    return;
+  }
+
+  const categoryOptions = cachedCategories
+    .map((cat) => `<option value="${cat.id}">${cat.name}</option>`)
+    .join("");
+
+  elements.subcategoryList.innerHTML = subs
+    .map(
+      (sub) => `
+        <tr data-id="${sub.id}">
+          <td><input class="table-input" type="text" value="${escapeAttr(sub.name)}" /></td>
+          <td>
+            <select class="table-select">
+              ${categoryOptions.replace(
+                `value="${sub.category_id}"`,
+                `value="${sub.category_id}" selected`
+              )}
+            </select>
+          </td>
+          <td><input class="table-input" type="text" value="${escapeAttr(sub.description || "")}" /></td>
+          <td><input type="checkbox" ${sub.active ? "checked" : ""} /></td>
+          <td class="table-actions">
+            <button class="action-btn approve" data-action="save">Save</button>
+            <button class="action-btn reject" data-action="delete">Delete</button>
+          </td>
+        </tr>
+      `
+    )
+    .join("");
+
+  setManageStatus(elements.subcategoryManageStatus, "Loaded.");
+}
+
+async function saveCategoryRow(row) {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const inputs = row.querySelectorAll("input");
+  const name = inputs[0]?.value?.trim();
+  const description = inputs[1]?.value?.trim();
+  const active = inputs[2]?.checked ?? true;
+  const id = row.dataset.id;
+
+  if (!name) {
+    setManageStatus(elements.categoryManageStatus, "Name is required.");
+    return;
+  }
+
+  const { error } = await client
+    .from("categories")
+    .update({ name, description, active })
+    .eq("id", id);
+  if (error) {
+    setManageStatus(elements.categoryManageStatus, `Failed: ${error.message}`);
+    return;
+  }
+
+  setManageStatus(elements.categoryManageStatus, "Category updated.");
+  await refreshCatalogLists();
+  await loadManageCategories();
+  await loadManageSubcategories();
+}
+
+async function deleteCategoryRow(row) {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const id = row.dataset.id;
+  if (!confirm("Delete this category? This will remove related subcategories.")) return;
+  const { error } = await client.from("categories").delete().eq("id", id);
+  if (error) {
+    setManageStatus(elements.categoryManageStatus, `Failed: ${error.message}`);
+    return;
+  }
+  setManageStatus(elements.categoryManageStatus, "Category deleted.");
+  await refreshCatalogLists();
+  await loadManageCategories();
+  await loadManageSubcategories();
+}
+
+async function saveSubcategoryRow(row) {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const name = row.querySelector("input.table-input")?.value?.trim();
+  const categoryId = row.querySelector("select.table-select")?.value || "";
+  const descInput = row.querySelectorAll("input.table-input")[1];
+  const description = descInput ? descInput.value.trim() : "";
+  const active = row.querySelector("input[type=\"checkbox\"]")?.checked ?? true;
+  const id = row.dataset.id;
+
+  if (!name || !categoryId) {
+    setManageStatus(elements.subcategoryManageStatus, "Name and category are required.");
+    return;
+  }
+
+  const { error } = await client
+    .from("subcategories")
+    .update({ name, description, active, category_id: categoryId })
+    .eq("id", id);
+  if (error) {
+    setManageStatus(elements.subcategoryManageStatus, `Failed: ${error.message}`);
+    return;
+  }
+
+  setManageStatus(elements.subcategoryManageStatus, "Subcategory updated.");
+  await refreshCatalogLists();
+  await loadManageSubcategories();
+}
+
+async function deleteSubcategoryRow(row) {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const id = row.dataset.id;
+  if (!confirm("Delete this subcategory?")) return;
+  const { error } = await client.from("subcategories").delete().eq("id", id);
+  if (error) {
+    setManageStatus(elements.subcategoryManageStatus, `Failed: ${error.message}`);
+    return;
+  }
+  setManageStatus(elements.subcategoryManageStatus, "Subcategory deleted.");
+  await refreshCatalogLists();
+  await loadManageSubcategories();
+}
+
 async function handleSubcategorySubmit(event) {
   event.preventDefault();
   const formData = new FormData(event.target);
@@ -967,7 +1165,39 @@ function bindEvents() {
   if (elements.productCategorySelect) {
     elements.productCategorySelect.addEventListener("change", async (event) => {
       const subs = await loadSubcategories(event.target.value);
-      fillSelect(elements.productSubcategorySelect, subs, "Select subcategory (optional)");
+      fillSelect(elements.productSubcategorySelect, subs, "Select subcategory");
+    });
+  }
+
+  if (elements.categoryList) {
+    elements.categoryList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const row = button.closest("tr");
+      if (!row) return;
+      const action = button.dataset.action;
+      if (action === "save") {
+        saveCategoryRow(row);
+      }
+      if (action === "delete") {
+        deleteCategoryRow(row);
+      }
+    });
+  }
+
+  if (elements.subcategoryList) {
+    elements.subcategoryList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const row = button.closest("tr");
+      if (!row) return;
+      const action = button.dataset.action;
+      if (action === "save") {
+        saveSubcategoryRow(row);
+      }
+      if (action === "delete") {
+        deleteSubcategoryRow(row);
+      }
     });
   }
 
@@ -1000,6 +1230,8 @@ async function initDashboard() {
   await loadProductCount();
   await loadSalesAnalytics();
   await loadSupportThreads();
+  await loadManageCategories();
+  await loadManageSubcategories();
 }
 
 bindEvents();

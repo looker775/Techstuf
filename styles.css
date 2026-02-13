@@ -1264,6 +1264,23 @@ input[type="file"] {
   border-bottom: 1px solid rgba(12, 18, 21, 0.08);
 }
 
+.table-input,
+.table-select {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(12, 18, 21, 0.12);
+  padding: 0.4rem 0.6rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  background: #fff;
+}
+
+.table-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
 .status-pill {
   display: inline-flex;
   padding: 0.2rem 0.6rem;
