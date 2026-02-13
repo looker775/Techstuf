@@ -72,8 +72,8 @@ main,
 }
 
 .logo {
-  width: 64px;
-  height: 64px;
+  width: 84px;
+  height: 84px;
   border-radius: 16px;
   background: linear-gradient(135deg, var(--accent), var(--sun));
   display: grid;
@@ -86,7 +86,7 @@ main,
 
 .logo.has-image {
   background: rgba(12, 18, 21, 0.08);
-  padding: 8px;
+  padding: 10px;
 }
 
 .logo img {
