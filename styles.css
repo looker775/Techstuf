@@ -84,6 +84,18 @@ main,
   letter-spacing: 0.02em;
 }
 
+.logo.has-image {
+  background: rgba(12, 18, 21, 0.08);
+  padding: 6px;
+}
+
+.logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  border-radius: 10px;
+}
+
 .brand-text span {
   display: block;
   font-family: "Space Grotesk", sans-serif;
