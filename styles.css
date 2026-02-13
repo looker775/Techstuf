@@ -366,6 +366,29 @@ main,
   flex-wrap: wrap;
 }
 
+.filter-select {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.filter-select select {
+  border: 1px solid rgba(12, 18, 21, 0.1);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: "Space Grotesk", sans-serif;
+  min-width: 180px;
+}
+
+.filter-select select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .filter-bar button {
   border: 1px solid rgba(12, 18, 21, 0.1);
   background: rgba(255, 255, 255, 0.8);

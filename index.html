@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="config.js?v=20260213b"></script>
-    <script defer src="i18n.js?v=20260213k"></script>
-    <script defer src="app.js?v=20260213m"></script>
+    <script defer src="i18n.js?v=20260213n"></script>
+    <script defer src="app.js?v=20260213n"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -128,7 +128,20 @@
           <h2 data-i18n="shop.title">Shop the Techstuf floor</h2>
           <p data-i18n="shop.subtitle">Every item is verified for build quality, firmware support, and creator-friendly return windows.</p>
         </div>
-        <div class="filter-bar" id="filterBar"></div>
+        <div class="filter-bar" id="filterBar">
+          <label class="filter-select">
+            <span data-i18n="filters.category_label">Category</span>
+            <select id="categorySelect">
+              <option value="all" data-i18n="filters.all">All</option>
+            </select>
+          </label>
+          <label class="filter-select">
+            <span data-i18n="filters.subcategory_label">Subcategory</span>
+            <select id="subcategorySelect" disabled>
+              <option value="all" data-i18n="filters.all">All</option>
+            </select>
+          </label>
+        </div>
       </section>
 
       <section class="product-grid" id="productGrid"></section>

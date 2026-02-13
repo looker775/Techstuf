@@ -152,7 +152,11 @@ const state = {
   products: [],
   filtered: [],
   cart: loadCart(),
-  activeCategory: "All",
+  activeCategoryId: "all",
+  activeSubcategoryId: "all",
+  categoryMode: "product",
+  categories: [],
+  subcategories: [],
   activeBundle: "Creator",
   search: "",
   reviews: {},
@@ -175,6 +179,8 @@ const elements = {
   supabaseStatus: document.getElementById("supabaseStatus"),
   setupModal: document.getElementById("setupModal"),
   paypalButtons: document.getElementById("paypalButtons"),
+  categorySelect: document.getElementById("categorySelect"),
+  subcategorySelect: document.getElementById("subcategorySelect"),
   buyerRegister: document.getElementById("buyerRegister"),
   buyerLogin: document.getElementById("buyerLogin"),
   buyerStatus: document.getElementById("buyerStatus"),
@@ -496,9 +502,10 @@ function renderProducts() {
       const artStyle = product.image_url
         ? `background-image: url('${safeImage}');`
         : `--hue: ${product.hue}`;
+      const displayCategory = product.categoryName || product.category || t("product.default_category", "Gear");
       return `
         <article class="product-card" data-id="${product.id}">
-          <div class="${artClass}" style="${artStyle}">${product.category}</div>
+          <div class="${artClass}" style="${artStyle}">${displayCategory}</div>
           <div class="product-info">
             <h3>${product.name}</h3>
             <p>${product.description}</p>
@@ -509,7 +516,7 @@ function renderProducts() {
           </div>
           <div class="product-meta">
             <strong>${formatPrice(product.price)}</strong>
-            <span>${product.category}</span>
+            <span>${displayCategory}</span>
           </div>
           <button class="btn secondary" data-add="${product.id}">${t("product.add_to_cart", "Add to cart")}</button>
           <button class="btn ghost" data-review="${product.id}">${t("product.reviews", "Reviews")}</button>
@@ -520,26 +527,74 @@ function renderProducts() {
 }
 
 function buildFilters() {
-  const categories = ["All", ...new Set(state.products.map((item) => item.category))];
-  elements.filterBar.innerHTML = categories
-    .map(
-      (category) => {
-        const label = category === "All" ? t("filters.all", "All") : category;
-        return `<button class="${category === state.activeCategory ? "active" : ""}" data-filter="${category}">${label}</button>`;
-      }
-    )
-    .join("");
+  const categorySelect = elements.categorySelect;
+  const subcategorySelect = elements.subcategorySelect;
+  if (!categorySelect || !subcategorySelect) return;
+
+  let categories = [];
+  if (state.categories.length) {
+    categories = state.categories.map((item) => ({ value: item.id, label: item.name }));
+    state.categoryMode = "table";
+  } else {
+    const unique = Array.from(
+      new Set(
+        state.products
+          .map((item) => item.categoryName || item.category)
+          .filter(Boolean)
+      )
+    );
+    categories = unique.map((name) => ({ value: name, label: name }));
+    state.categoryMode = "product";
+  }
+
+  const allLabel = t("filters.all", "All");
+  categorySelect.innerHTML = `<option value="all">${allLabel}</option>` +
+    categories.map((item) => `<option value="${item.value}">${item.label}</option>`).join("");
+
+  if (!categories.find((item) => item.value === state.activeCategoryId)) {
+    state.activeCategoryId = "all";
+  }
+  categorySelect.value = state.activeCategoryId;
+
+  if (state.categoryMode === "table" && state.activeCategoryId !== "all") {
+    const subs = state.subcategories.filter(
+      (sub) => sub.category_id === state.activeCategoryId
+    );
+    subcategorySelect.disabled = !subs.length;
+    const subOptions = subs.map((sub) => `<option value="${sub.id}">${sub.name}</option>`).join("");
+    subcategorySelect.innerHTML = `<option value="all">${allLabel}</option>` + subOptions;
+    if (!subs.find((sub) => sub.id === state.activeSubcategoryId)) {
+      state.activeSubcategoryId = "all";
+    }
+    subcategorySelect.value = state.activeSubcategoryId;
+  } else {
+    state.activeSubcategoryId = "all";
+    subcategorySelect.innerHTML = `<option value="all">${allLabel}</option>`;
+    subcategorySelect.disabled = true;
+  }
 }
 
 function applyFilters() {
   const query = state.search.toLowerCase();
   state.filtered = state.products.filter((product) => {
-    const matchCategory = state.activeCategory === "All" || product.category === state.activeCategory;
+    let matchCategory = true;
+    if (state.activeCategoryId !== "all") {
+      if (state.categoryMode === "table") {
+        matchCategory = product.category_id === state.activeCategoryId;
+      } else {
+        const categoryName = product.categoryName || product.category || "";
+        matchCategory = categoryName === state.activeCategoryId;
+      }
+    }
+    let matchSubcategory = true;
+    if (state.activeSubcategoryId !== "all") {
+      matchSubcategory = product.subcategory_id === state.activeSubcategoryId;
+    }
     const matchSearch =
       product.name.toLowerCase().includes(query) ||
       product.description.toLowerCase().includes(query) ||
-      product.category.toLowerCase().includes(query);
-    return matchCategory && matchSearch;
+      (product.categoryName || product.category || "").toLowerCase().includes(query);
+    return matchCategory && matchSubcategory && matchSearch;
   });
   renderProducts();
 }
@@ -1161,6 +1216,42 @@ async function loadSupabaseProducts() {
     return null;
   }
 
+  let categories = [];
+  let subcategories = [];
+  const categoriesResult = await client
+    .from("categories")
+    .select("id, name")
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (!categoriesResult.error) {
+    categories = categoriesResult.data || [];
+  }
+
+  const subcategoriesResult = await client
+    .from("subcategories")
+    .select("id, name, category_id")
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (!subcategoriesResult.error) {
+    subcategories = subcategoriesResult.data || [];
+  }
+
+  state.categories = categories;
+  state.subcategories = subcategories;
+
+  const categoryMap = categories.reduce((acc, item) => {
+    acc[item.id] = item.name;
+    return acc;
+  }, {});
+  const categoryNameToId = categories.reduce((acc, item) => {
+    acc[item.name] = item.id;
+    return acc;
+  }, {});
+  const subcategoryMap = subcategories.reduce((acc, item) => {
+    acc[item.id] = item.name;
+    return acc;
+  }, {});
+
   const { data, error } = await client.from("products").select("*").limit(50);
 
   if (error || !data) {
@@ -1174,7 +1265,16 @@ async function loadSupabaseProducts() {
     .map((item, index) => ({
       id: item.id || item.sku || `sb-${index}`,
       name: item.name || t("product.unnamed", "Unnamed product"),
+      category_id: item.category_id || categoryNameToId[item.category] || null,
+      subcategory_id: item.subcategory_id || null,
       category: item.category || t("product.default_category", "Gear"),
+      categoryName:
+        (item.category_id && categoryMap[item.category_id]) ||
+        categoryMap[categoryNameToId[item.category]] ||
+        item.category ||
+        t("product.default_category", "Gear"),
+      subcategoryName:
+        (item.subcategory_id && subcategoryMap[item.subcategory_id]) || "",
       price: Number(item.price) || 0,
       rating: Number(item.rating) || 4.5,
       badge: item.badge || t("product.default_badge", "Live"),
@@ -1209,13 +1309,21 @@ function bindEvents() {
     applyFilters();
   });
 
-  elements.filterBar.addEventListener("click", (event) => {
-    const button = event.target.closest("button");
-    if (!button) return;
-    state.activeCategory = button.dataset.filter;
-    buildFilters();
-    applyFilters();
-  });
+  if (elements.categorySelect) {
+    elements.categorySelect.addEventListener("change", (event) => {
+      state.activeCategoryId = event.target.value || "all";
+      state.activeSubcategoryId = "all";
+      buildFilters();
+      applyFilters();
+    });
+  }
+
+  if (elements.subcategorySelect) {
+    elements.subcategorySelect.addEventListener("change", (event) => {
+      state.activeSubcategoryId = event.target.value || "all";
+      applyFilters();
+    });
+  }
 
   elements.grid.addEventListener("click", (event) => {
     const button = event.target.closest("[data-add]");

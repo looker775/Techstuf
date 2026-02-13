@@ -58,6 +58,7 @@ let supabaseClient = null;
 let currentOwner = null;
 let activeChatThreadId = null;
 let chatThreadsCache = [];
+let cachedCategories = [];
 
 function getAuthStorage() {
   try {
@@ -148,7 +149,8 @@ async function loadCategories() {
   if (error) {
     return [];
   }
-  return data || [];
+  cachedCategories = data || [];
+  return cachedCategories;
 }
 
 async function loadSubcategories(categoryId) {
@@ -678,6 +680,10 @@ async function handleProductSubmit(event) {
   const categoryText = String(formData.get("category_text") || "").trim();
   const categoryId = String(formData.get("category_id") || "");
   const subcategoryId = String(formData.get("subcategory_id") || "");
+  const categoryFromId = categoryId
+    ? cachedCategories.find((item) => item.id === categoryId)?.name
+    : "";
+  const resolvedCategoryText = categoryText || categoryFromId || "";
 
   if (!name || !price) {
     setText(elements.productStatus, "Name and price are required.");
@@ -707,7 +713,7 @@ async function handleProductSubmit(event) {
     description,
     image_url: imageUrl,
     video_url: videoUrl,
-    category: categoryText || undefined,
+    category: resolvedCategoryText || undefined,
     category_id: categoryId || null,
     subcategory_id: subcategoryId || null,
     active: true,

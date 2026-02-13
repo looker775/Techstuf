@@ -291,6 +291,8 @@
       },
       filters: {
         all: "All",
+        category_label: "Category",
+        subcategory_label: "Subcategory",
       },
       product: {
         add_to_cart: "Add to cart",
@@ -572,6 +574,8 @@
       },
       filters: {
         all: "Все",
+        category_label: "Категория",
+        subcategory_label: "Подкатегория",
       },
       product: {
         add_to_cart: "В корзину",
