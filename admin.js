@@ -62,7 +62,13 @@ let permissions = {
 function getSupabaseClient() {
   if (supabaseClient) return supabaseClient;
   if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
-  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+    },
+  });
   return supabaseClient;
 }
 
@@ -117,8 +123,12 @@ async function guardAdminAccess() {
     return null;
   }
 
-  const { data } = await client.auth.getSession();
-  const session = data?.session;
+  let { data } = await client.auth.getSession();
+  let session = data?.session;
+  if (!session) {
+    const refreshed = await client.auth.refreshSession();
+    session = refreshed.data?.session || null;
+  }
   if (!session?.user) {
     window.location.href = "/kali";
     return null;
