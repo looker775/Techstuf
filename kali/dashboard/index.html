@@ -10,8 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="../../config.js?v=20260213d"></script>
-    <script defer src="../../owner.js?v=20260213d"></script>
+    <script defer src="../../config.js?v=20260213e"></script>
+    <script defer src="../../owner.js?v=20260213e"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -81,6 +81,28 @@
                 </tr>
               </thead>
               <tbody id="adminRequests"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Admin permissions</h3>
+            <p>Toggle which admins can publish products and manage categories.</p>
+          </div>
+          <div id="permissionsError" class="auth-status" hidden></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Active</th>
+                  <th>Publish products</th>
+                  <th>Manage categories</th>
+                  <th>Manage subcategories</th>
+                </tr>
+              </thead>
+              <tbody id="adminPermissions"></tbody>
             </table>
           </div>
         </div>

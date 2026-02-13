@@ -1,0 +1,123 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Techstuf | Admin Console</title>
+    <meta name="description" content="Admin console for Techstuf." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="../../config.js?v=20260213e"></script>
+    <script defer src="../../admin.js?v=20260213e"></script>
+  </head>
+  <body>
+    <div class="page-glow"></div>
+    <div class="grain"></div>
+
+    <header class="site-header">
+      <div class="brand">
+        <div class="logo">TS</div>
+        <div class="brand-text">
+          <span>Techstuf</span>
+          <small>Admin console</small>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="/">Back to store</a>
+        <a href="/kali/dashboard/">Owner dashboard</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="dashboard" data-reveal>
+        <div class="dashboard-header">
+          <div>
+            <h2>Admin publishing</h2>
+            <p id="adminGreeting">Checking admin session...</p>
+          </div>
+          <div class="dashboard-actions">
+            <button class="btn ghost" id="refreshAdmin" type="button">Refresh</button>
+            <button class="btn secondary" id="logoutBtn" type="button">Sign out</button>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Your permissions</h3>
+            <p id="permissionStatus">Loading permissions...</p>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <span>Publish products</span>
+              <strong id="permProducts">No</strong>
+            </div>
+            <div class="stat-card">
+              <span>Manage categories</span>
+              <strong id="permCategories">No</strong>
+            </div>
+            <div class="stat-card">
+              <span>Manage subcategories</span>
+              <strong id="permSubcategories">No</strong>
+            </div>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Publish product</h3>
+            <p>Create a new product listing.</p>
+          </div>
+          <form class="form-grid" id="productForm">
+            <input type="text" name="name" placeholder="Product name" required />
+            <input type="number" name="price" placeholder="Price" min="0" step="0.01" required />
+            <input type="number" name="rating" placeholder="Rating" min="0" max="5" step="0.1" />
+            <input type="text" name="badge" placeholder="Badge (optional)" />
+            <input type="number" name="image_hue" placeholder="Image hue (0-360)" min="0" max="360" />
+            <input type="text" name="category_text" placeholder="Category name" />
+            <select name="category_id" id="productCategorySelect">
+              <option value="">Select category (optional)</option>
+            </select>
+            <select name="subcategory_id" id="productSubcategorySelect">
+              <option value="">Select subcategory (optional)</option>
+            </select>
+            <textarea name="description" rows="3" placeholder="Description"></textarea>
+            <button class="btn secondary" type="submit">Publish product</button>
+            <div class="auth-status" id="productStatus">Awaiting input.</div>
+          </form>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Create category</h3>
+            <p>Add a new category for the catalog.</p>
+          </div>
+          <form class="form-grid" id="categoryForm">
+            <input type="text" name="name" placeholder="Category name" required />
+            <textarea name="description" rows="2" placeholder="Description"></textarea>
+            <button class="btn secondary" type="submit">Add category</button>
+            <div class="auth-status" id="categoryStatus">Awaiting input.</div>
+          </form>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Create subcategory</h3>
+            <p>Attach a subcategory to a category.</p>
+          </div>
+          <form class="form-grid" id="subcategoryForm">
+            <input type="text" name="name" placeholder="Subcategory name" required />
+            <select name="category_id" id="subcategoryCategorySelect" required>
+              <option value="">Select category</option>
+            </select>
+            <textarea name="description" rows="2" placeholder="Description"></textarea>
+            <button class="btn secondary" type="submit">Add subcategory</button>
+            <div class="auth-status" id="subcategoryStatus">Awaiting input.</div>
+          </form>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

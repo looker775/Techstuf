@@ -10,6 +10,8 @@ const elements = {
   refreshDashboard: document.getElementById("refreshDashboard"),
   adminRequests: document.getElementById("adminRequests"),
   adminError: document.getElementById("adminError"),
+  adminPermissions: document.getElementById("adminPermissions"),
+  permissionsError: document.getElementById("permissionsError"),
   pendingCount: document.getElementById("pendingCount"),
   approvedCount: document.getElementById("approvedCount"),
   productCount: document.getElementById("productCount"),
@@ -159,6 +161,71 @@ async function loadAdminRequests() {
     .join("");
 }
 
+async function loadAdminPermissions() {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from("profiles")
+    .select(
+      "id, email, role, is_active, can_publish_products, can_manage_categories, can_manage_subcategories"
+    )
+    .eq("role", "admin")
+    .order("email", { ascending: true });
+
+  if (error) {
+    setText(
+      elements.permissionsError,
+      "Admin permissions not accessible. Add owner policies in Supabase."
+    );
+    setHidden(elements.permissionsError, false);
+    if (elements.adminPermissions) {
+      elements.adminPermissions.innerHTML = "";
+    }
+    return;
+  }
+
+  setHidden(elements.permissionsError, true);
+
+  const admins = data || [];
+  if (!elements.adminPermissions) return;
+
+  if (!admins.length) {
+    elements.adminPermissions.innerHTML = "<tr><td colspan=\"5\">No admins yet.</td></tr>";
+    return;
+  }
+
+  elements.adminPermissions.innerHTML = admins
+    .map((admin) => {
+      const activeChecked = admin.is_active ? "checked" : "";
+      const productChecked = admin.can_publish_products ? "checked" : "";
+      const categoryChecked = admin.can_manage_categories ? "checked" : "";
+      const subcategoryChecked = admin.can_manage_subcategories ? "checked" : "";
+
+      return `
+        <tr>
+          <td>${admin.email}</td>
+          <td><input type="checkbox" data-field="is_active" data-id="${admin.id}" ${activeChecked} /></td>
+          <td><input type="checkbox" data-field="can_publish_products" data-id="${admin.id}" ${productChecked} /></td>
+          <td><input type="checkbox" data-field="can_manage_categories" data-id="${admin.id}" ${categoryChecked} /></td>
+          <td><input type="checkbox" data-field="can_manage_subcategories" data-id="${admin.id}" ${subcategoryChecked} /></td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function updateAdminPermission(adminId, field, value) {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { error } = await client.from("profiles").update({ [field]: value }).eq("id", adminId);
+  if (error) {
+    alert(`Failed to update admin: ${error.message}`);
+    await loadAdminPermissions();
+  }
+}
+
 async function approveAdmin(requestId, userId) {
   const client = getSupabaseClient();
   if (!client) return;
@@ -176,7 +243,13 @@ async function approveAdmin(requestId, userId) {
   if (userId) {
     const { error: roleError } = await client
       .from("profiles")
-      .update({ role: "admin" })
+      .update({
+        role: "admin",
+        is_active: true,
+        can_publish_products: false,
+        can_manage_categories: false,
+        can_manage_subcategories: false,
+      })
       .eq("id", userId);
 
     if (roleError) {
@@ -185,6 +258,7 @@ async function approveAdmin(requestId, userId) {
   }
 
   loadAdminRequests();
+  loadAdminPermissions();
 }
 
 async function rejectAdmin(requestId, userId) {
@@ -202,10 +276,19 @@ async function rejectAdmin(requestId, userId) {
   }
 
   if (userId) {
-    await client.from("profiles").update({ role: "buyer" }).eq("id", userId);
+    await client
+      .from("profiles")
+      .update({
+        role: "buyer",
+        can_publish_products: false,
+        can_manage_categories: false,
+        can_manage_subcategories: false,
+      })
+      .eq("id", userId);
   }
 
   loadAdminRequests();
+  loadAdminPermissions();
 }
 
 function bindEvents() {
@@ -221,6 +304,7 @@ function bindEvents() {
   if (elements.refreshDashboard) {
     elements.refreshDashboard.addEventListener("click", () => {
       loadAdminRequests();
+      loadAdminPermissions();
       loadProductCount();
     });
   }
@@ -240,12 +324,24 @@ function bindEvents() {
       }
     });
   }
+
+  if (elements.adminPermissions) {
+    elements.adminPermissions.addEventListener("change", (event) => {
+      const checkbox = event.target.closest("input[data-field]");
+      if (!checkbox) return;
+      const adminId = checkbox.dataset.id;
+      const field = checkbox.dataset.field;
+      const value = checkbox.checked;
+      updateAdminPermission(adminId, field, value);
+    });
+  }
 }
 
 async function initDashboard() {
   const owner = await guardOwnerAccess();
   if (!owner) return;
   await loadAdminRequests();
+  await loadAdminPermissions();
   await loadProductCount();
 }
 

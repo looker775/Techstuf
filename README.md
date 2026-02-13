@@ -146,6 +146,140 @@ using (
 );
 ```
 
+## Publishing permissions (products + categories + subcategories)
+Run this SQL to add permission fields and catalog tables:
+
+```sql
+alter table public.profiles
+  add column if not exists is_active boolean default true,
+  add column if not exists can_publish_products boolean default false,
+  add column if not exists can_manage_categories boolean default false,
+  add column if not exists can_manage_subcategories boolean default false;
+
+create table if not exists public.categories (
+  id uuid primary key default gen_random_uuid(),
+  name text unique not null,
+  description text,
+  active boolean default true,
+  created_at timestamptz default now()
+);
+
+create table if not exists public.subcategories (
+  id uuid primary key default gen_random_uuid(),
+  category_id uuid not null references public.categories(id) on delete cascade,
+  name text not null,
+  description text,
+  active boolean default true,
+  created_at timestamptz default now(),
+  unique (category_id, name)
+);
+
+alter table public.products
+  add column if not exists category_id uuid references public.categories(id),
+  add column if not exists subcategory_id uuid references public.subcategories(id),
+  add column if not exists published_by uuid references auth.users(id);
+
+alter table public.categories enable row level security;
+alter table public.subcategories enable row level security;
+```
+
+Allow owner + approved admins to manage catalog:
+
+```sql
+create policy "Owner can manage products"
+on public.products for all
+using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+)
+with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Admins can manage products"
+on public.products for all
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_publish_products = true
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_publish_products = true
+  )
+);
+
+create policy "Owner can manage categories"
+on public.categories for all
+using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+)
+with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Admins can manage categories"
+on public.categories for all
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_manage_categories = true
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_manage_categories = true
+  )
+);
+
+create policy "Owner can manage subcategories"
+on public.subcategories for all
+using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+)
+with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Admins can manage subcategories"
+on public.subcategories for all
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_manage_subcategories = true
+  )
+)
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_manage_subcategories = true
+  )
+);
+```
+
+Admin console:
+- Visit `/kali/admin/` after your admin account is approved.
+
 ## PayPal setup
 Frontend (public):
 - Set `PAYPAL_CLIENT_ID` inside `app.js` to your PayPal client ID.

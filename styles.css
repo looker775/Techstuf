@@ -981,6 +981,21 @@ main,
   gap: 0.8rem;
 }
 
+.form-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.form-grid input,
+.form-grid select,
+.form-grid textarea {
+  border-radius: 16px;
+  border: 1px solid rgba(12, 18, 21, 0.1);
+  padding: 0.65rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+}
+
 @media (max-width: 720px) {
   .dashboard-header {
     flex-direction: column;

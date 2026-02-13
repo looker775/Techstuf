@@ -12,10 +12,17 @@ const elements = {
 };
 
 const DASHBOARD_PATH = "/kali/dashboard/";
+const ADMIN_PATH = "/kali/admin/";
 
 function redirectToDashboard() {
   if (!window.location.pathname.startsWith(DASHBOARD_PATH)) {
     window.location.href = DASHBOARD_PATH;
+  }
+}
+
+function redirectToAdmin() {
+  if (!window.location.pathname.startsWith(ADMIN_PATH)) {
+    window.location.href = ADMIN_PATH;
   }
 }
 
@@ -111,6 +118,7 @@ async function refreshAuthStatus() {
   } else if (role === "admin") {
     setStatus(elements.adminStatus, `Admin access granted: ${user.email}`);
     setStatus(elements.ownerStatus, "Owner access only.");
+    redirectToAdmin();
   } else {
     setStatus(elements.adminStatus, `Signed in as ${user.email}. Admin approval pending.`);
     setStatus(elements.ownerStatus, "Owner access only.");
