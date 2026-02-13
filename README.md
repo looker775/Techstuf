@@ -19,6 +19,8 @@ Suggested `products` table columns:
 - `rating` (numeric)
 - `badge` (text)
 - `description` (text)
+- `image_url` (text)
+- `video_url` (text)
 - `image_hue` (numeric)
 - `active` (boolean)
 
@@ -177,7 +179,9 @@ create table if not exists public.subcategories (
 alter table public.products
   add column if not exists category_id uuid references public.categories(id),
   add column if not exists subcategory_id uuid references public.subcategories(id),
-  add column if not exists published_by uuid references auth.users(id);
+  add column if not exists published_by uuid references auth.users(id),
+  add column if not exists image_url text,
+  add column if not exists video_url text;
 
 alter table public.categories enable row level security;
 alter table public.subcategories enable row level security;

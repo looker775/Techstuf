@@ -179,7 +179,8 @@ async function handleProductSubmit(event) {
   const rating = Number(formData.get("rating") || 4.5);
   const badge = String(formData.get("badge") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const imageHue = Number(formData.get("image_hue") || 140);
+  const imageUrl = String(formData.get("image_url") || "").trim();
+  const videoUrl = String(formData.get("video_url") || "").trim();
   const categoryText = String(formData.get("category_text") || "").trim();
   const categoryId = String(formData.get("category_id") || "");
   const subcategoryId = String(formData.get("subcategory_id") || "");
@@ -195,7 +196,8 @@ async function handleProductSubmit(event) {
     rating,
     badge,
     description,
-    image_hue: imageHue,
+    image_url: imageUrl || null,
+    video_url: videoUrl || null,
     category: categoryText || undefined,
     category_id: categoryId || null,
     subcategory_id: subcategoryId || null,

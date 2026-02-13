@@ -15,6 +15,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Drop",
     description: "38-inch ultra-wide with warm tone calibration.",
     hue: 190,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-002",
@@ -25,6 +27,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Studio",
     description: "Compact mixer with voice isolation and USB-C.",
     hue: 150,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-003",
@@ -35,6 +39,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Pro",
     description: "Thunderbolt dock with dual cooling rails.",
     hue: 24,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-004",
@@ -45,6 +51,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Hot",
     description: "Low-profile mechanical board with silent switches.",
     hue: 210,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-005",
@@ -55,6 +63,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Glow",
     description: "Bias lighting bar with cinematic presets.",
     hue: 42,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-006",
@@ -65,6 +75,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Sync",
     description: "Encrypted storage hub for studios and teams.",
     hue: 112,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-007",
@@ -75,6 +87,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Fast",
     description: "Tri-band mesh with creator-grade QoS.",
     hue: 280,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-008",
@@ -85,6 +99,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Boost",
     description: "Programmable macro pad with tactile feedback.",
     hue: 320,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-009",
@@ -95,6 +111,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Sharp",
     description: "Studio-grade camera with low light tuning.",
     hue: 12,
+    image_url: "",
+    video_url: "",
   },
   {
     id: "ts-010",
@@ -105,6 +123,8 @@ const DEFAULT_PRODUCTS = [
     badge: "Flow",
     description: "One-cable dock with PD and twin HDMI.",
     hue: 168,
+    image_url: "",
+    video_url: "",
   },
 ];
 
@@ -333,9 +353,14 @@ async function requestAdminAccess(reason) {
 function renderProducts() {
   elements.grid.innerHTML = state.filtered
     .map((product) => {
+      const safeImage = product.image_url ? product.image_url.replace(/'/g, "\\'") : "";
+      const artClass = product.image_url ? "product-art has-image" : "product-art";
+      const artStyle = product.image_url
+        ? `background-image: url('${safeImage}');`
+        : `--hue: ${product.hue}`;
       return `
         <article class="product-card" data-id="${product.id}">
-          <div class="product-art" style="--hue: ${product.hue}">${product.category}</div>
+          <div class="${artClass}" style="${artStyle}">${product.category}</div>
           <div class="product-info">
             <h3>${product.name}</h3>
             <p>${product.description}</p>
@@ -615,6 +640,8 @@ async function loadSupabaseProducts() {
       badge: item.badge || "Live",
       description: item.description || "Supabase item",
       hue: Number(item.image_hue) || (140 + index * 24) % 360,
+      image_url: item.image_url || "",
+      video_url: item.video_url || "",
     }));
 
   elements.supabaseStatus.textContent = `synced ${mapped.length} items`;

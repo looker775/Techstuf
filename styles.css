@@ -372,6 +372,12 @@ main,
   font-family: "Space Grotesk", sans-serif;
 }
 
+.product-art.has-image {
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
 .product-info h3 {
   font-family: "Space Grotesk", sans-serif;
   font-size: 1.1rem;
