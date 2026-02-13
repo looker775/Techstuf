@@ -27,7 +27,7 @@ Suggested `products` table columns:
 Enable RLS and add a public read policy for active products.
 
 ## Auth setup (buyers, admins, owner)
-The landing page includes buyer registration/login, admin request/login, and owner login.
+The landing page includes buyer registration/login. Admin + owner login live at `/kali`.
 
 Run this SQL in Supabase SQL Editor:
 
@@ -331,6 +331,57 @@ Backend (Netlify Functions):
 The PayPal buttons call Netlify Functions at:
 - `/.netlify/functions/paypal-create-order`
 - `/.netlify/functions/paypal-capture-order`
+
+## Sales analytics (orders)
+To show sales analytics in the owner + admin dashboards, log PayPal captures into Supabase.
+
+Netlify environment variables (Functions):
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY` (keep this secret, server-side only)
+
+Run this SQL in Supabase:
+
+```sql
+create table if not exists public.orders (
+  id uuid primary key default gen_random_uuid(),
+  paypal_order_id text unique,
+  status text,
+  currency text,
+  total numeric,
+  items jsonb,
+  payer_email text,
+  payer_id text,
+  capture_id text,
+  source text default 'paypal',
+  created_at timestamptz default now()
+);
+
+alter table public.orders enable row level security;
+
+create policy "Owner can read orders"
+on public.orders for select
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'owner'
+  )
+);
+
+create policy "Admins can read orders"
+on public.orders for select
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+  )
+);
+```
+
+Analytics appear on:
+- `/kali/dashboard/` (owner)
+- `/kali/admin/` (admin)
 
 ## Product reviews (stars + comments)
 Run this SQL to enable reviews:

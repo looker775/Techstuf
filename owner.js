@@ -3,6 +3,18 @@ const SUPABASE_URL = TECHSTUF_CONFIG.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = TECHSTUF_CONFIG.SUPABASE_ANON_KEY || "";
 const OWNER_EMAIL = (TECHSTUF_CONFIG.OWNER_EMAIL || "").toLowerCase();
 const MEDIA_BUCKET = TECHSTUF_CONFIG.MEDIA_BUCKET || "product-media";
+const PAYPAL_CURRENCY = TECHSTUF_CONFIG.PAYPAL_CURRENCY || "USD";
+const I18N = typeof window !== "undefined" ? window.TECHSTUF_I18N || null : null;
+const t =
+  I18N && typeof I18N.t === "function"
+    ? I18N.t
+    : (key, fallback, vars) => {
+        if (!fallback) return key;
+        if (!vars) return fallback;
+        return fallback.replace(/\{\{(\w+)\}\}/g, (match, token) =>
+          vars[token] === undefined ? match : String(vars[token])
+        );
+      };
 
 const elements = {
   ownerGreeting: document.getElementById("ownerGreeting"),
@@ -16,6 +28,13 @@ const elements = {
   pendingCount: document.getElementById("pendingCount"),
   approvedCount: document.getElementById("approvedCount"),
   productCount: document.getElementById("productCount"),
+  salesRevenue: document.getElementById("salesRevenue"),
+  salesOrders: document.getElementById("salesOrders"),
+  salesAvg: document.getElementById("salesAvg"),
+  salesLast7: document.getElementById("salesLast7"),
+  salesTop: document.getElementById("salesTop"),
+  recentOrders: document.getElementById("recentOrders"),
+  salesStatus: document.getElementById("salesStatus"),
   productForm: document.getElementById("productForm"),
   productStatus: document.getElementById("productStatus"),
   categoryForm: document.getElementById("categoryForm"),
@@ -53,6 +72,20 @@ function formatDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "--";
   return date.toLocaleString();
+}
+
+function formatMoney(value, currency) {
+  const safeValue = Number(value) || 0;
+  const safeCurrency = (currency || PAYPAL_CURRENCY || "USD").toUpperCase();
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: safeCurrency,
+      maximumFractionDigits: 2,
+    }).format(safeValue);
+  } catch (error) {
+    return `${safeCurrency} ${safeValue.toFixed(2)}`;
+  }
 }
 
 function statusBadge(status) {
@@ -170,6 +203,126 @@ async function loadProductCount() {
     return;
   }
   setText(elements.productCount, String(count || 0));
+}
+
+function normalizeOrderItems(items) {
+  if (!Array.isArray(items)) return [];
+  return items
+    .map((item) => {
+      const name = String(item?.name || "").trim();
+      const price =
+        Number(item?.price) ||
+        Number(item?.unit_amount?.value) ||
+        0;
+      const qty = Math.max(1, Number(item?.qty) || Number(item?.quantity) || 1);
+      if (!name || !Number.isFinite(price) || price <= 0) {
+        return null;
+      }
+      return { name, price, qty };
+    })
+    .filter(Boolean);
+}
+
+async function loadSalesAnalytics() {
+  const client = getSupabaseClient();
+  if (!client) {
+    setText(elements.salesStatus, t("analytics.not_ready", "Sales analytics need Supabase config."));
+    return;
+  }
+
+  setText(elements.salesStatus, t("analytics.loading", "Loading sales data..."));
+
+  const { data, error } = await client
+    .from("orders")
+    .select("id, paypal_order_id, status, currency, total, items, created_at, payer_email")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    setText(
+      elements.salesStatus,
+      t("analytics.not_ready", "Orders table not accessible. Run the sales analytics SQL.")
+    );
+    if (elements.recentOrders) {
+      elements.recentOrders.innerHTML =
+        `<tr><td colspan="5">${t("analytics.no_orders", "No orders yet.")}</td></tr>`;
+    }
+    return;
+  }
+
+  const orders = data || [];
+  if (!orders.length) {
+    setText(elements.salesRevenue, "--");
+    setText(elements.salesOrders, "0");
+    setText(elements.salesAvg, "--");
+    setText(elements.salesLast7, "--");
+    setText(elements.salesTop, "--");
+    if (elements.recentOrders) {
+      elements.recentOrders.innerHTML =
+        `<tr><td colspan="5">${t("analytics.no_orders", "No orders yet.")}</td></tr>`;
+    }
+    setText(elements.salesStatus, t("analytics.no_orders", "No orders yet."));
+    return;
+  }
+
+  const currency =
+    orders.find((order) => order.currency)?.currency || PAYPAL_CURRENCY || "USD";
+  const totalRevenue = orders.reduce((sum, order) => sum + (Number(order.total) || 0), 0);
+  const orderCount = orders.length;
+  const avgOrder = orderCount ? totalRevenue / orderCount : 0;
+
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const last7Total = orders.reduce((sum, order) => {
+    const created = new Date(order.created_at).getTime();
+    if (Number.isFinite(created) && created >= sevenDaysAgo) {
+      return sum + (Number(order.total) || 0);
+    }
+    return sum;
+  }, 0);
+
+  const productTotals = {};
+  orders.forEach((order) => {
+    const items = normalizeOrderItems(order.items);
+    items.forEach((item) => {
+      const revenue = item.price * item.qty;
+      productTotals[item.name] = (productTotals[item.name] || 0) + revenue;
+    });
+  });
+
+  const topProductEntry = Object.entries(productTotals).sort((a, b) => b[1] - a[1])[0];
+  const topLabel = topProductEntry
+    ? `${topProductEntry[0]} (${formatMoney(topProductEntry[1], currency)})`
+    : "--";
+
+  setText(elements.salesRevenue, formatMoney(totalRevenue, currency));
+  setText(elements.salesOrders, String(orderCount));
+  setText(elements.salesAvg, formatMoney(avgOrder, currency));
+  setText(elements.salesLast7, formatMoney(last7Total, currency));
+  setText(elements.salesTop, topLabel);
+
+  if (elements.recentOrders) {
+    elements.recentOrders.innerHTML = orders
+      .slice(0, 8)
+      .map((order) => {
+        const orderId = order.paypal_order_id || order.id || "--";
+        const shortId = orderId === "--" ? "--" : orderId.slice(0, 8);
+        const email = order.payer_email || "--";
+        const total = formatMoney(order.total || 0, currency);
+        const status = order.status || "--";
+        return `
+          <tr>
+            <td>${formatDate(order.created_at)}</td>
+            <td>${shortId}</td>
+            <td>${email}</td>
+            <td>${total}</td>
+            <td>${status}</td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  setText(elements.salesStatus, t("analytics.updated", "Sales data updated."));
 }
 
 async function loadAdminRequests() {
@@ -558,6 +711,7 @@ function bindEvents() {
       loadAdminPermissions();
       refreshCatalogLists();
       loadProductCount();
+      loadSalesAnalytics();
     });
   }
 
@@ -619,6 +773,7 @@ async function initDashboard() {
   await loadAdminPermissions();
   await refreshCatalogLists();
   await loadProductCount();
+  await loadSalesAnalytics();
 }
 
 bindEvents();

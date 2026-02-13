@@ -586,7 +586,12 @@ function renderPayPalButtons() {
         const response = await fetch("/.netlify/functions/paypal-capture-order", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ orderID: data.orderID }),
+          body: JSON.stringify({
+            orderID: data.orderID,
+            items,
+            total,
+            currency: PAYPAL_CURRENCY,
+          }),
         });
 
         const capture = await response.json();

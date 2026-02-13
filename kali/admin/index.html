@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="../../styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js?v=20260213g"></script>
-    <script defer src="../../i18n.js?v=20260213e"></script>
-    <script defer src="../../admin.js?v=20260213g"></script>
+    <script defer src="../../i18n.js?v=20260213i"></script>
+    <script defer src="../../admin.js?v=20260213i"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -77,6 +77,50 @@
               <strong id="permSubcategories">No</strong>
             </div>
           </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3 data-i18n="analytics.title">Sales analytics</h3>
+            <p data-i18n="analytics.desc">PayPal captures recorded in Supabase.</p>
+          </div>
+          <div class="stat-grid">
+            <div class="stat-card">
+              <span data-i18n="analytics.total_revenue">Total revenue</span>
+              <strong id="salesRevenue">--</strong>
+            </div>
+            <div class="stat-card">
+              <span data-i18n="analytics.total_orders">Total orders</span>
+              <strong id="salesOrders">0</strong>
+            </div>
+            <div class="stat-card">
+              <span data-i18n="analytics.avg_order">Avg order</span>
+              <strong id="salesAvg">--</strong>
+            </div>
+            <div class="stat-card">
+              <span data-i18n="analytics.last_7">Last 7 days</span>
+              <strong id="salesLast7">--</strong>
+            </div>
+            <div class="stat-card">
+              <span data-i18n="analytics.top_product">Top product</span>
+              <strong id="salesTop">--</strong>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th data-i18n="analytics.order_date">Date</th>
+                  <th data-i18n="analytics.order_id">Order</th>
+                  <th data-i18n="analytics.order_email">Customer</th>
+                  <th data-i18n="analytics.order_total">Total</th>
+                  <th data-i18n="analytics.order_status">Status</th>
+                </tr>
+              </thead>
+              <tbody id="recentOrders"></tbody>
+            </table>
+          </div>
+          <div class="auth-status" id="salesStatus" data-i18n="analytics.loading">Loading sales data...</div>
         </div>
 
         <div class="dashboard-panel">
