@@ -1,6 +1,7 @@
 const TECHSTUF_CONFIG = typeof window !== "undefined" ? window.TECHSTUF_CONFIG || {} : {};
 const SUPABASE_URL = TECHSTUF_CONFIG.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = TECHSTUF_CONFIG.SUPABASE_ANON_KEY || "";
+const OWNER_EMAIL = (TECHSTUF_CONFIG.OWNER_EMAIL || "").toLowerCase();
 
 const elements = {
   adminLogin: document.getElementById("adminLogin"),
@@ -40,7 +41,7 @@ async function getUserRole(userId) {
     .from("profiles")
     .select("role")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
   if (error) {
     return {
@@ -50,7 +51,7 @@ async function getUserRole(userId) {
   }
 
   if (!data) {
-    return { role: null, error: "No profile row found for this user." };
+    return { role: null, error: "No profile row found or access denied." };
   }
 
   return { role: data.role || null, error: null };
@@ -77,6 +78,12 @@ async function refreshAuthStatus() {
   const roleResult = await getUserRole(user.id);
 
   if (roleResult.error) {
+    if (OWNER_EMAIL && user.email.toLowerCase() === OWNER_EMAIL) {
+      setStatus(elements.adminStatus, "Owner logged in.");
+      setStatus(elements.ownerStatus, `Owner access granted: ${user.email}`);
+      return;
+    }
+
     setStatus(
       elements.adminStatus,
       `Signed in as ${user.email}. Role lookup failed: ${roleResult.error}`

@@ -3,6 +3,7 @@ const SUPABASE_URL = TECHSTUF_CONFIG.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = TECHSTUF_CONFIG.SUPABASE_ANON_KEY || "";
 const PAYPAL_CLIENT_ID = TECHSTUF_CONFIG.PAYPAL_CLIENT_ID || "";
 const PAYPAL_CURRENCY = TECHSTUF_CONFIG.PAYPAL_CURRENCY || "USD";
+const OWNER_EMAIL = (TECHSTUF_CONFIG.OWNER_EMAIL || "").toLowerCase();
 
 const DEFAULT_PRODUCTS = [
   {
@@ -210,7 +211,12 @@ async function getUserRole(userId) {
   const client = getSupabaseClient();
   if (!client || !userId) return null;
 
-  const { data, error } = await client.from("profiles").select("role").eq("id", userId).single();
+  const { data, error } = await client
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .maybeSingle();
+
   if (error || !data) {
     return null;
   }
@@ -240,10 +246,13 @@ async function refreshAuthStatus() {
   const role = (await getUserRole(user.id)) || "buyer";
   setStatus(elements.buyerStatus, `Signed in as ${user.email}.`);
 
-  if (role === "owner") {
-    setStatus(elements.adminStatus, "Admin access approved.");
+  if (role === "owner" || (OWNER_EMAIL && user.email.toLowerCase() === OWNER_EMAIL)) {
+    setStatus(elements.adminStatus, "Owner logged in.");
     setStatus(elements.ownerStatus, "Owner access granted.");
-  } else if (role === "admin") {
+    return;
+  }
+
+  if (role === "admin") {
     setStatus(elements.adminStatus, "Admin access approved.");
     setStatus(elements.ownerStatus, "Owner access only.");
   } else {

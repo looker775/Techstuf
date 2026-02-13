@@ -5,4 +5,5 @@ window.TECHSTUF_CONFIG = {
   PAYPAL_CLIENT_ID:
     "AWl0VYwK-I-dDMHr041A-zEJ3dVCoTgMTgA43fh2xVROlFwhjWbtVxJKrcwA5jq_04aetzVfOCYFQHbP",
   PAYPAL_CURRENCY: "USD",
+  OWNER_EMAIL: "kaliwill3@gmail.com",
 };
