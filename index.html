@@ -218,33 +218,6 @@
           </form>
           <div class="auth-status" id="buyerStatus" data-i18n="auth.buyer_status_default">Not signed in.</div>
         </div>
-        <div class="auth-card">
-          <h2 data-i18n="auth.admin_title">Admin access</h2>
-          <p data-i18n="auth.admin_desc">Admins need owner approval before accessing management tools.</p>
-          <form id="adminRegister">
-            <input type="email" name="email" placeholder="Admin email" required data-i18n-placeholder="auth.admin_email_placeholder" />
-            <input type="password" name="password" placeholder="Create password" minlength="6" required data-i18n-placeholder="auth.create_password_placeholder" />
-            <textarea name="reason" rows="3" placeholder="Why do you need admin access?" data-i18n-placeholder="auth.reason_placeholder"></textarea>
-            <button class="btn secondary" type="submit" data-i18n="auth.admin_request">Request admin account</button>
-          </form>
-          <form id="adminLogin">
-            <input type="email" name="email" placeholder="Admin email" required data-i18n-placeholder="auth.admin_email_placeholder" />
-            <input type="password" name="password" placeholder="Password" required data-i18n-placeholder="auth.password_placeholder" />
-            <button class="btn ghost" type="submit" data-i18n="auth.admin_login">Admin login</button>
-          </form>
-          <div class="auth-status" id="adminStatus" data-i18n="auth.admin_status_default">Admin access requires approval.</div>
-        </div>
-        <div class="auth-card highlight">
-          <h2 data-i18n="auth.owner_title">Owner login</h2>
-          <p data-i18n="auth.owner_desc">Owner accounts are created in Supabase Auth and approved manually.</p>
-          <form id="ownerLogin">
-            <input type="email" name="email" placeholder="Owner email" required data-i18n-placeholder="auth.owner_email_placeholder" />
-            <input type="password" name="password" placeholder="Password" required data-i18n-placeholder="auth.password_placeholder" />
-            <button class="btn primary" type="submit" data-i18n="auth.owner_login">Owner login</button>
-          </form>
-          <button class="btn ghost" id="logoutBtn" type="button" data-i18n="auth.sign_out">Sign out</button>
-          <div class="auth-status" id="ownerStatus" data-i18n="auth.owner_status_default">Owner access only.</div>
-        </div>
       </section>
 
       <section class="support" id="support" data-reveal>
