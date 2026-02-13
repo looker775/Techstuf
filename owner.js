@@ -25,6 +25,8 @@ const elements = {
   productCategorySelect: document.getElementById("productCategorySelect"),
   productSubcategorySelect: document.getElementById("productSubcategorySelect"),
   subcategoryCategorySelect: document.getElementById("subcategoryCategorySelect"),
+  ownerAccountForm: document.getElementById("ownerAccountForm"),
+  ownerAccountStatus: document.getElementById("ownerAccountStatus"),
 };
 
 let supabaseClient = null;
@@ -433,6 +435,48 @@ async function handleSubcategorySubmit(event) {
   await refreshCatalogLists();
 }
 
+async function handleOwnerAccountUpdate(event) {
+  event.preventDefault();
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const formData = new FormData(event.target);
+  const newEmail = String(formData.get("new_email") || "").trim();
+  const newPassword = String(formData.get("new_password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+
+  if (!newEmail && !newPassword) {
+    setText(elements.ownerAccountStatus, "Enter a new email or password.");
+    return;
+  }
+
+  if (newPassword && newPassword.length < 6) {
+    setText(elements.ownerAccountStatus, "Password must be at least 6 characters.");
+    return;
+  }
+
+  if (newPassword && newPassword !== confirmPassword) {
+    setText(elements.ownerAccountStatus, "Password confirmation does not match.");
+    return;
+  }
+
+  const updateData = {};
+  if (newEmail) updateData.email = newEmail;
+  if (newPassword) updateData.password = newPassword;
+
+  const { error } = await client.auth.updateUser(updateData);
+  if (error) {
+    setText(elements.ownerAccountStatus, `Update failed: ${error.message}`);
+    return;
+  }
+
+  setText(
+    elements.ownerAccountStatus,
+    "Update requested. Check your email to confirm changes if prompted."
+  );
+  event.target.reset();
+}
+
 async function approveAdmin(requestId, userId) {
   const client = getSupabaseClient();
   if (!client) return;
@@ -554,6 +598,10 @@ function bindEvents() {
 
   if (elements.subcategoryForm) {
     elements.subcategoryForm.addEventListener("submit", handleSubcategorySubmit);
+  }
+
+  if (elements.ownerAccountForm) {
+    elements.ownerAccountForm.addEventListener("submit", handleOwnerAccountUpdate);
   }
 
   if (elements.productCategorySelect) {

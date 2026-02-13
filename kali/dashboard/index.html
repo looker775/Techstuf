@@ -10,8 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="../../config.js?v=20260213g"></script>
-    <script defer src="../../owner.js?v=20260213g"></script>
+    <script defer src="../../config.js?v=20260213h"></script>
+    <script defer src="../../owner.js?v=20260213h"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -158,6 +158,20 @@
             <textarea name="description" rows="2" placeholder="Description"></textarea>
             <button class="btn secondary" type="submit">Add subcategory</button>
             <div class="auth-status" id="subcategoryStatus">Awaiting input.</div>
+          </form>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Owner account</h3>
+            <p>Update your login email or password.</p>
+          </div>
+          <form class="form-grid" id="ownerAccountForm">
+            <input type="email" name="new_email" placeholder="New email (optional)" />
+            <input type="password" name="new_password" placeholder="New password (optional)" />
+            <input type="password" name="confirm_password" placeholder="Confirm new password" />
+            <button class="btn secondary" type="submit">Update account</button>
+            <div class="auth-status" id="ownerAccountStatus">Awaiting input.</div>
           </form>
         </div>
 
