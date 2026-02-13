@@ -32,13 +32,13 @@ function setStatus(element, message) {
 
 async function getUserRole(userId) {
   const client = getSupabaseClient();
-  if (!client || !userId) return null;
+  if (!client || !userId) return { role: null, error: "Auth not configured." };
 
   const { data, error } = await client.from("profiles").select("role").eq("id", userId).single();
   if (error || !data) {
-    return null;
+    return { role: null, error: error?.message || "Role lookup failed." };
   }
-  return data.role;
+  return { role: data.role || null, error: null };
 }
 
 async function refreshAuthStatus() {
@@ -59,7 +59,18 @@ async function refreshAuthStatus() {
   }
 
   const user = session.user;
-  const role = (await getUserRole(user.id)) || "buyer";
+  const roleResult = await getUserRole(user.id);
+
+  if (roleResult.error) {
+    setStatus(
+      elements.adminStatus,
+      `Signed in as ${user.email}. Role not found. Run the auth SQL setup.`
+    );
+    setStatus(elements.ownerStatus, "Owner access only.");
+    return;
+  }
+
+  const role = roleResult.role || "buyer";
 
   if (role === "owner") {
     setStatus(elements.adminStatus, "Owner logged in.");
@@ -68,7 +79,7 @@ async function refreshAuthStatus() {
     setStatus(elements.adminStatus, `Admin access granted: ${user.email}`);
     setStatus(elements.ownerStatus, "Owner access only.");
   } else {
-    setStatus(elements.adminStatus, "Admin access pending approval.");
+    setStatus(elements.adminStatus, `Signed in as ${user.email}. Admin approval pending.`);
     setStatus(elements.ownerStatus, "Owner access only.");
   }
 }
@@ -98,7 +109,6 @@ function bindEvents() {
       const password = String(formData.get("password") || "");
       const result = await signInUser(email, password);
       if (result) {
-        event.target.reset();
         refreshAuthStatus();
       }
     });
@@ -112,7 +122,6 @@ function bindEvents() {
       const password = String(formData.get("password") || "");
       const result = await signInUser(email, password);
       if (result) {
-        event.target.reset();
         refreshAuthStatus();
       }
     });
