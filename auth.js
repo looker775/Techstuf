@@ -2,6 +2,17 @@ const TECHSTUF_CONFIG = typeof window !== "undefined" ? window.TECHSTUF_CONFIG |
 const SUPABASE_URL = TECHSTUF_CONFIG.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = TECHSTUF_CONFIG.SUPABASE_ANON_KEY || "";
 const OWNER_EMAIL = (TECHSTUF_CONFIG.OWNER_EMAIL || "").toLowerCase();
+const I18N = typeof window !== "undefined" ? window.TECHSTUF_I18N || null : null;
+const t =
+  I18N && typeof I18N.t === "function"
+    ? I18N.t
+    : (key, fallback, vars) => {
+        if (!fallback) return key;
+        if (!vars) return fallback;
+        return fallback.replace(/\{\{(\w+)\}\}/g, (match, token) =>
+          vars[token] === undefined ? match : String(vars[token])
+        );
+      };
 
 const elements = {
   adminLogin: document.getElementById("adminLogin"),
@@ -49,7 +60,7 @@ function setStatus(element, message) {
 async function getUserRole(userId) {
   const client = getSupabaseClient();
   if (!client || !userId) {
-    return { role: null, error: "Auth not configured." };
+    return { role: null, error: t("status.auth_missing", "Auth not configured.") };
   }
 
   const { data, error } = await client
@@ -75,8 +86,8 @@ async function getUserRole(userId) {
 async function refreshAuthStatus() {
   const client = getSupabaseClient();
   if (!client) {
-    setStatus(elements.adminStatus, "Auth not configured.");
-    setStatus(elements.ownerStatus, "Auth not configured.");
+    setStatus(elements.adminStatus, t("status.auth_missing", "Auth not configured."));
+    setStatus(elements.ownerStatus, t("status.auth_missing", "Auth not configured."));
     return;
   }
 
@@ -84,8 +95,8 @@ async function refreshAuthStatus() {
   const session = data?.session;
 
   if (!session?.user) {
-    setStatus(elements.adminStatus, "Admin access requires approval.");
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(elements.adminStatus, t("status.admin_requires", "Admin access requires approval."));
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
     return;
   }
 
@@ -94,17 +105,20 @@ async function refreshAuthStatus() {
 
   if (roleResult.error) {
     if (OWNER_EMAIL && user.email.toLowerCase() === OWNER_EMAIL) {
-      setStatus(elements.adminStatus, "Owner logged in.");
-      setStatus(elements.ownerStatus, `Owner access granted: ${user.email}`);
+      setStatus(elements.adminStatus, t("status.owner_logged_in", "Owner logged in."));
+      setStatus(
+        elements.ownerStatus,
+        t("status.owner_access_granted", "Owner access granted.") + ` ${user.email}`
+      );
       redirectToDashboard();
       return;
     }
 
     setStatus(
       elements.adminStatus,
-      `Signed in as ${user.email}. Role lookup failed: ${roleResult.error}`
+      `${t("status.signed_in_as", "Signed in as {{email}}.", { email: user.email })} ${roleResult.error}`
     );
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
     console.error("Role lookup failed", roleResult.error);
     return;
   }
@@ -112,23 +126,32 @@ async function refreshAuthStatus() {
   const role = roleResult.role || "buyer";
 
   if (role === "owner") {
-    setStatus(elements.adminStatus, "Owner logged in.");
-    setStatus(elements.ownerStatus, `Owner access granted: ${user.email}`);
+    setStatus(elements.adminStatus, t("status.owner_logged_in", "Owner logged in."));
+    setStatus(
+      elements.ownerStatus,
+      t("status.owner_access_granted", "Owner access granted.") + ` ${user.email}`
+    );
     redirectToDashboard();
   } else if (role === "admin") {
-    setStatus(elements.adminStatus, `Admin access granted: ${user.email}`);
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(
+      elements.adminStatus,
+      t("status.admin_access_approved", "Admin access approved.") + ` ${user.email}`
+    );
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
     redirectToAdmin();
   } else {
-    setStatus(elements.adminStatus, `Signed in as ${user.email}. Admin approval pending.`);
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(
+      elements.adminStatus,
+      t("status.admin_access_pending", "Admin access pending owner approval.")
+    );
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
   }
 }
 
 async function signInUser(email, password) {
   const client = getSupabaseClient();
   if (!client) {
-    alert("Supabase auth not configured");
+    alert(t("toast.auth_missing", "Supabase auth not configured"));
     return null;
   }
 
@@ -172,7 +195,7 @@ function bindEvents() {
     elements.logoutBtn.addEventListener("click", async () => {
       const client = getSupabaseClient();
       if (!client) {
-        alert("Supabase auth not configured");
+        alert(t("toast.auth_missing", "Supabase auth not configured"));
         return;
       }
       await client.auth.signOut();
@@ -193,6 +216,10 @@ function initAuth() {
   });
   refreshAuthStatus();
 }
+
+window.addEventListener("techstuf:languagechange", () => {
+  refreshAuthStatus();
+});
 
 bindEvents();
 initAuth();

@@ -131,6 +131,37 @@ main,
   gap: 1rem;
 }
 
+.lang-select {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.lang-select label {
+  display: grid;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.lang-select select {
+  border: 1px solid rgba(12, 18, 21, 0.15);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  background: rgba(255, 255, 255, 0.7);
+  font-family: inherit;
+}
+
+.lang-action {
+  border: 1px solid rgba(12, 18, 21, 0.1);
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: "Space Grotesk", sans-serif;
+}
+
 .search {
   display: flex;
   flex-direction: column;
@@ -934,6 +965,11 @@ input[type="file"] {
   .header-actions {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .lang-select {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .search input {

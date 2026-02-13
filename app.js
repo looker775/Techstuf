@@ -4,6 +4,19 @@ const SUPABASE_ANON_KEY = TECHSTUF_CONFIG.SUPABASE_ANON_KEY || "";
 const PAYPAL_CLIENT_ID = TECHSTUF_CONFIG.PAYPAL_CLIENT_ID || "";
 const PAYPAL_CURRENCY = TECHSTUF_CONFIG.PAYPAL_CURRENCY || "USD";
 const OWNER_EMAIL = (TECHSTUF_CONFIG.OWNER_EMAIL || "").toLowerCase();
+const I18N = typeof window !== "undefined" ? window.TECHSTUF_I18N || null : null;
+const t =
+  I18N && typeof I18N.t === "function"
+    ? I18N.t
+    : (key, fallback, vars) => {
+        if (!fallback) return key;
+        if (!vars) return fallback;
+        return fallback.replace(/\{\{(\w+)\}\}/g, (match, token) =>
+          vars[token] === undefined ? match : String(vars[token])
+        );
+      };
+const getLocale = () =>
+  I18N && typeof I18N.getLocale === "function" ? I18N.getLocale() : "en-US";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -140,8 +153,10 @@ const state = {
   filtered: [],
   cart: loadCart(),
   activeCategory: "All",
+  activeBundle: "Creator",
   search: "",
   reviews: {},
+  supabaseInfo: { mode: "connecting", count: 0 },
 };
 
 const elements = {
@@ -193,9 +208,9 @@ function getSupabaseClient() {
 }
 
 function formatPrice(value) {
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat(getLocale(), {
     style: "currency",
-    currency: "USD",
+    currency: PAYPAL_CURRENCY || "USD",
     maximumFractionDigits: 0,
   }).format(value);
 }
@@ -243,6 +258,22 @@ function setStatus(element, message) {
   element.textContent = message;
 }
 
+function updateSupabaseStatus() {
+  if (!elements.supabaseStatus || !state.supabaseInfo) return;
+  const mode = state.supabaseInfo.mode;
+  if (mode === "local_demo") {
+    elements.supabaseStatus.textContent = t("supabase.local_demo", "local demo");
+  } else if (mode === "offline_demo") {
+    elements.supabaseStatus.textContent = t("supabase.offline_demo", "offline, using demo");
+  } else if (mode === "synced") {
+    elements.supabaseStatus.textContent = t("supabase.synced", "synced {{count}} items", {
+      count: state.supabaseInfo.count || 0,
+    });
+  } else {
+    elements.supabaseStatus.textContent = t("hero.meta_connecting", "connecting...");
+  }
+}
+
 async function getUserRole(userId) {
   const client = getSupabaseClient();
   if (!client || !userId) return null;
@@ -262,9 +293,9 @@ async function getUserRole(userId) {
 async function refreshAuthStatus() {
   const client = getSupabaseClient();
   if (!client) {
-    setStatus(elements.buyerStatus, "Auth not configured.");
-    setStatus(elements.adminStatus, "Auth not configured.");
-    setStatus(elements.ownerStatus, "Auth not configured.");
+    setStatus(elements.buyerStatus, t("status.auth_missing", "Auth not configured."));
+    setStatus(elements.adminStatus, t("status.auth_missing", "Auth not configured."));
+    setStatus(elements.ownerStatus, t("status.auth_missing", "Auth not configured."));
     return;
   }
 
@@ -272,35 +303,35 @@ async function refreshAuthStatus() {
   const session = data?.session;
 
   if (!session?.user) {
-    setStatus(elements.buyerStatus, "Not signed in.");
-    setStatus(elements.adminStatus, "Admin access requires approval.");
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(elements.buyerStatus, t("status.not_signed_in", "Not signed in."));
+    setStatus(elements.adminStatus, t("status.admin_requires", "Admin access requires approval."));
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
     return;
   }
 
   const user = session.user;
   const role = (await getUserRole(user.id)) || "buyer";
-  setStatus(elements.buyerStatus, `Signed in as ${user.email}.`);
+  setStatus(elements.buyerStatus, t("status.signed_in_as", "Signed in as {{email}}.", { email: user.email }));
 
   if (role === "owner" || (OWNER_EMAIL && user.email.toLowerCase() === OWNER_EMAIL)) {
-    setStatus(elements.adminStatus, "Owner logged in.");
-    setStatus(elements.ownerStatus, "Owner access granted.");
+    setStatus(elements.adminStatus, t("status.owner_logged_in", "Owner logged in."));
+    setStatus(elements.ownerStatus, t("status.owner_access_granted", "Owner access granted."));
     return;
   }
 
   if (role === "admin") {
-    setStatus(elements.adminStatus, "Admin access approved.");
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(elements.adminStatus, t("status.admin_access_approved", "Admin access approved."));
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
   } else {
-    setStatus(elements.adminStatus, "Admin access pending owner approval.");
-    setStatus(elements.ownerStatus, "Owner access only.");
+    setStatus(elements.adminStatus, t("status.admin_access_pending", "Admin access pending owner approval."));
+    setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
   }
 }
 
 async function signUpUser(email, password, metadata) {
   const client = getSupabaseClient();
   if (!client) {
-    showToast("Supabase auth not configured");
+    showToast(t("toast.auth_missing", "Supabase auth not configured"));
     return null;
   }
 
@@ -323,7 +354,7 @@ async function signUpUser(email, password, metadata) {
 async function signInUser(email, password) {
   const client = getSupabaseClient();
   if (!client) {
-    showToast("Supabase auth not configured");
+    showToast(t("toast.auth_missing", "Supabase auth not configured"));
     return null;
   }
 
@@ -339,14 +370,14 @@ async function signInUser(email, password) {
 async function requestAdminAccess(reason) {
   const client = getSupabaseClient();
   if (!client) {
-    showToast("Supabase auth not configured");
+    showToast(t("toast.auth_missing", "Supabase auth not configured"));
     return;
   }
 
   const { data } = await client.auth.getSession();
   const session = data?.session;
   if (!session?.user) {
-    showToast("Sign in first to request admin access");
+    showToast(t("toast.sign_in_first", "Sign in first to request admin access"));
     return;
   }
 
@@ -359,11 +390,16 @@ async function requestAdminAccess(reason) {
 
   const { error } = await client.from("admin_requests").insert(payload);
   if (error) {
-    showToast("Admin request not saved. Check admin_requests table and policies.");
+    showToast(
+      t(
+        "toast.admin_request_saved_error",
+        "Admin request not saved. Check admin_requests table and policies."
+      )
+    );
     return;
   }
 
-  showToast("Admin request submitted");
+  showToast(t("toast.admin_request_submitted", "Admin request submitted"));
   refreshAuthStatus();
 }
 function renderProducts() {
@@ -394,8 +430,8 @@ function renderProducts() {
             <strong>${formatPrice(product.price)}</strong>
             <span>${product.category}</span>
           </div>
-          <button class="btn secondary" data-add="${product.id}">Add to cart</button>
-          <button class="btn ghost" data-review="${product.id}">Reviews</button>
+          <button class="btn secondary" data-add="${product.id}">${t("product.add_to_cart", "Add to cart")}</button>
+          <button class="btn ghost" data-review="${product.id}">${t("product.reviews", "Reviews")}</button>
         </article>
       `;
     })
@@ -406,8 +442,10 @@ function buildFilters() {
   const categories = ["All", ...new Set(state.products.map((item) => item.category))];
   elements.filterBar.innerHTML = categories
     .map(
-      (category) =>
-        `<button class="${category === state.activeCategory ? "active" : ""}" data-filter="${category}">${category}</button>`
+      (category) => {
+        const label = category === "All" ? t("filters.all", "All") : category;
+        return `<button class="${category === state.activeCategory ? "active" : ""}" data-filter="${category}">${label}</button>`;
+      }
     )
     .join("");
 }
@@ -435,7 +473,7 @@ function addToCart(productId) {
   };
   saveCart();
   renderCart();
-  showToast(`${product.name} added`);
+  showToast(t("toast.added", "Added to cart"));
 }
 
 function removeFromCart(productId) {
@@ -454,9 +492,9 @@ function renderCart() {
           <div class="thumb"></div>
           <div>
             <h4>${item.product.name}</h4>
-            <span>${formatPrice(item.product.price)} | Qty ${item.qty}</span>
+            <span>${formatPrice(item.product.price)} | ${t("cart.qty", "Qty")} ${item.qty}</span>
           </div>
-          <button data-remove="${item.product.id}">Remove</button>
+          <button data-remove="${item.product.id}">${t("cart.remove", "Remove")}</button>
         </div>
       `;
     })
@@ -499,7 +537,7 @@ function loadPayPalSdk() {
   script.id = "paypal-sdk";
   script.src = `https://www.paypal.com/sdk/js?client-id=${PAYPAL_CLIENT_ID}&currency=${PAYPAL_CURRENCY}&intent=capture`;
   script.addEventListener("load", renderPayPalButtons);
-  script.addEventListener("error", () => showToast("PayPal failed to load"));
+  script.addEventListener("error", () => showToast(t("toast.paypal_failed", "PayPal failed to load")));
   document.head.appendChild(script);
 }
 
@@ -513,7 +551,7 @@ function renderPayPalButtons() {
 
   if (!items.length || total <= 0) {
     elements.paypalButtons.innerHTML =
-      "<p class=\"paypal-empty\">Add items to checkout with PayPal.</p>";
+      `<p class="paypal-empty">${t("cart.empty", "Add items to checkout with PayPal.")}</p>`;
     return;
   }
 
@@ -559,11 +597,11 @@ function renderPayPalButtons() {
         state.cart = {};
         saveCart();
         renderCart();
-        showToast("Payment complete");
+        showToast(t("toast.payment_complete", "Payment complete"));
       },
       onError: (error) => {
         console.error(error);
-        showToast("Payment failed");
+        showToast(t("toast.payment_failed", "Payment failed"));
       },
     })
     .render(elements.paypalButtons);
@@ -606,22 +644,24 @@ function openReviewModal(productId) {
       ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
       : product.rating;
 
-  elements.reviewTitle.textContent = `${product.name} reviews`;
-  elements.reviewMeta.textContent = `${reviews.length} review(s)`;
+  elements.reviewTitle.textContent = t("review.title_with_product", "{{name}} reviews", {
+    name: product.name,
+  });
+  elements.reviewMeta.textContent = t("review.count", "{{count}} review(s)", { count: reviews.length });
   elements.reviewRating.innerHTML = `${renderStars(average)} ${average.toFixed(1)} / 5`;
 
   if (!reviews.length) {
-    elements.reviewList.innerHTML = "<p>No reviews yet. Be the first to review.</p>";
+    elements.reviewList.innerHTML = `<p>${t("review.no_reviews", "No reviews yet. Be the first to review.")}</p>`;
   } else {
     elements.reviewList.innerHTML = reviews
       .map((review) => {
+        const comment = review.comment || t("review.no_comment", "No comment provided.");
+        const reviewer = review.user_email || t("review.verified_buyer", "Verified buyer");
         return `
           <div class="review-item">
             <div>${renderStars(review.rating)} ${Number(review.rating).toFixed(1)}</div>
-            <p>${review.comment || "No comment provided."}</p>
-            <small>${review.user_email || "Verified buyer"} &middot; ${new Date(
-              review.created_at
-            ).toLocaleString()}</small>
+            <p>${comment}</p>
+            <small>${reviewer} &middot; ${new Date(review.created_at).toLocaleString(getLocale())}</small>
           </div>
         `;
       })
@@ -629,7 +669,13 @@ function openReviewModal(productId) {
   }
 
   if (product.video_url) {
-    elements.reviewMeta.innerHTML += ` · <a href="${product.video_url}" target="_blank" rel="noreferrer">View video</a>`;
+    elements.reviewMeta.insertAdjacentHTML(
+      "beforeend",
+      ` &middot; <a href="${product.video_url}" target="_blank" rel="noreferrer">${t(
+        "review.view_video",
+        "View video"
+      )}</a>`
+    );
   }
 
   elements.reviewForm.dataset.productId = productId;
@@ -669,14 +715,14 @@ async function loadReviews() {
 async function submitReview(formData) {
   const client = getSupabaseClient();
   if (!client) {
-    showToast("Supabase auth not configured");
+    showToast(t("toast.auth_missing", "Supabase auth not configured"));
     return;
   }
 
   const { data } = await client.auth.getSession();
   const session = data?.session;
   if (!session?.user) {
-    setStatus(elements.reviewStatus, "Please log in to submit a review.");
+    setStatus(elements.reviewStatus, t("review_form.login_required", "Please log in to submit a review."));
     return;
   }
 
@@ -685,7 +731,7 @@ async function submitReview(formData) {
   const comment = String(formData.get("comment") || "").trim();
 
   if (!productId || rating < 1 || rating > 5) {
-    setStatus(elements.reviewStatus, "Please select a rating between 1 and 5.");
+    setStatus(elements.reviewStatus, t("review.rating_error", "Please select a rating between 1 and 5."));
     return;
   }
 
@@ -699,11 +745,14 @@ async function submitReview(formData) {
 
   const { error } = await client.from("product_reviews").insert(payload);
   if (error) {
-    setStatus(elements.reviewStatus, `Submit failed: ${error.message}`);
+    setStatus(
+      elements.reviewStatus,
+      t("review.submit_failed", "Submit failed: {{message}}", { message: error.message })
+    );
     return;
   }
 
-  setStatus(elements.reviewStatus, "Review submitted.");
+  setStatus(elements.reviewStatus, t("review.submit_success", "Review submitted."));
   elements.reviewForm.reset();
   await loadReviews();
   renderProducts();
@@ -729,12 +778,14 @@ function initReveal() {
 function renderBundle(bundle) {
   const ids = BUNDLES[bundle];
   if (!ids) return;
+  state.activeBundle = bundle;
   const items = ids
     .map((id) => state.products.find((product) => product.id === id))
     .filter(Boolean)
     .map((product) => `&bull; ${product.name}`)
     .join("<br />");
-  elements.bundleSummary.innerHTML = `<strong>${bundle} kit</strong><br />${items}`;
+  const kitLabel = t("bundles.kit", "{{bundle}} kit", { bundle });
+  elements.bundleSummary.innerHTML = `<strong>${kitLabel}</strong><br />${items}`;
 }
 
 function initAuth() {
@@ -753,14 +804,16 @@ function initAuth() {
 async function loadSupabaseProducts() {
   const client = getSupabaseClient();
   if (!client) {
-    elements.supabaseStatus.textContent = "local demo";
+    state.supabaseInfo = { mode: "local_demo", count: 0 };
+    updateSupabaseStatus();
     return null;
   }
 
   const { data, error } = await client.from("products").select("*").limit(50);
 
   if (error || !data) {
-    elements.supabaseStatus.textContent = "offline, using demo";
+    state.supabaseInfo = { mode: "offline_demo", count: 0 };
+    updateSupabaseStatus();
     return null;
   }
 
@@ -768,18 +821,19 @@ async function loadSupabaseProducts() {
     .filter((item) => item.active !== false)
     .map((item, index) => ({
       id: item.id || item.sku || `sb-${index}`,
-      name: item.name || "Unnamed product",
-      category: item.category || "Gear",
+      name: item.name || t("product.unnamed", "Unnamed product"),
+      category: item.category || t("product.default_category", "Gear"),
       price: Number(item.price) || 0,
       rating: Number(item.rating) || 4.5,
-      badge: item.badge || "Live",
-      description: item.description || "Supabase item",
+      badge: item.badge || t("product.default_badge", "Live"),
+      description: item.description || t("product.default_desc", "Supabase item"),
       hue: Number(item.image_hue) || (140 + index * 24) % 360,
       image_url: item.image_url || "",
       video_url: item.video_url || "",
     }));
 
-  elements.supabaseStatus.textContent = `synced ${mapped.length} items`;
+  state.supabaseInfo = { mode: "synced", count: mapped.length };
+  updateSupabaseStatus();
   return mapped.length ? mapped : null;
 }
 
@@ -835,7 +889,7 @@ function bindEvents() {
 
   document.getElementById("newsletter").addEventListener("submit", (event) => {
     event.preventDefault();
-    showToast("Welcome to the signal update");
+    showToast(t("toast.newsletter", "Welcome to the signal update"));
     event.target.reset();
   });
 
@@ -861,7 +915,7 @@ function bindEvents() {
       const password = String(formData.get("password") || "");
       const result = await signUpUser(email, password, { role: "buyer" });
       if (result) {
-        showToast("Buyer account created. Check email to confirm.");
+        showToast(t("toast.buyer_created", "Buyer account created. Check email to confirm."));
         event.target.reset();
         refreshAuthStatus();
       }
@@ -876,7 +930,7 @@ function bindEvents() {
       const password = String(formData.get("password") || "");
       const result = await signInUser(email, password);
       if (result) {
-        showToast("Buyer login successful");
+        showToast(t("toast.buyer_login", "Buyer login successful"));
         event.target.reset();
         refreshAuthStatus();
       }
@@ -892,7 +946,7 @@ function bindEvents() {
       const reason = String(formData.get("reason") || "").trim();
       const result = await signUpUser(email, password, { role: "admin_request" });
       if (result) {
-        showToast("Admin account created. Requesting approval.");
+        showToast(t("toast.admin_created", "Admin account created. Requesting approval."));
         await requestAdminAccess(reason);
         event.target.reset();
       }
@@ -907,7 +961,7 @@ function bindEvents() {
       const password = String(formData.get("password") || "");
       const result = await signInUser(email, password);
       if (result) {
-        showToast("Admin login successful");
+        showToast(t("toast.admin_login", "Admin login successful"));
         event.target.reset();
         refreshAuthStatus();
       }
@@ -922,7 +976,7 @@ function bindEvents() {
       const password = String(formData.get("password") || "");
       const result = await signInUser(email, password);
       if (result) {
-        showToast("Owner login successful");
+        showToast(t("toast.owner_login", "Owner login successful"));
         event.target.reset();
         refreshAuthStatus();
       }
@@ -933,12 +987,12 @@ function bindEvents() {
     elements.logoutBtn.addEventListener("click", async () => {
       const client = getSupabaseClient();
       if (!client) {
-        showToast("Supabase auth not configured");
+        showToast(t("toast.auth_missing", "Supabase auth not configured"));
         return;
       }
       await client.auth.signOut();
       refreshAuthStatus();
-      showToast("Signed out");
+      showToast(t("toast.signed_out", "Signed out"));
     });
   }
 }
@@ -950,12 +1004,28 @@ async function init() {
   await loadReviews();
   buildFilters();
   renderProducts();
-  renderBundle("Creator");
+  renderBundle(state.activeBundle);
   renderCart();
   bindEvents();
   loadPayPalSdk();
   initAuth();
   initReveal();
 }
+
+window.addEventListener("techstuf:toast", (event) => {
+  const message = event?.detail?.message;
+  if (message) {
+    showToast(message);
+  }
+});
+
+window.addEventListener("techstuf:languagechange", () => {
+  buildFilters();
+  applyFilters();
+  renderBundle(state.activeBundle || "Creator");
+  renderCart();
+  updateSupabaseStatus();
+  refreshAuthStatus();
+});
 
 document.addEventListener("DOMContentLoaded", init);
