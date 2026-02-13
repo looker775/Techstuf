@@ -288,6 +288,38 @@
 
     <div class="overlay" id="overlay"></div>
     <div class="toast" id="toast">Added to cart</div>
+    <div class="review-modal" id="reviewModal" aria-hidden="true">
+      <div class="review-content">
+        <div class="review-header">
+          <div>
+            <h3 id="reviewTitle">Product reviews</h3>
+            <p id="reviewMeta">Customer ratings and feedback.</p>
+          </div>
+          <button class="btn ghost" id="closeReview">Close</button>
+        </div>
+        <div class="review-rating" id="reviewRating"></div>
+        <div class="review-list" id="reviewList"></div>
+        <form class="review-form" id="reviewForm">
+          <label>
+            Rating
+            <select name="rating" required>
+              <option value="">Select</option>
+              <option value="5">5 - Excellent</option>
+              <option value="4">4 - Great</option>
+              <option value="3">3 - Good</option>
+              <option value="2">2 - Fair</option>
+              <option value="1">1 - Poor</option>
+            </select>
+          </label>
+          <label>
+            Comment
+            <textarea name="comment" rows="3" placeholder="Share your experience"></textarea>
+          </label>
+          <button class="btn secondary" type="submit">Submit review</button>
+          <div class="auth-status" id="reviewStatus">Login required to post.</div>
+        </form>
+      </div>
+    </div>
     <div class="setup-modal" id="setupModal" aria-hidden="true">
       <div class="setup-content">
         <h3>Supabase setup notes</h3>

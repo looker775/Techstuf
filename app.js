@@ -141,6 +141,7 @@ const state = {
   cart: loadCart(),
   activeCategory: "All",
   search: "",
+  reviews: {},
 };
 
 const elements = {
@@ -166,6 +167,14 @@ const elements = {
   ownerLogin: document.getElementById("ownerLogin"),
   ownerStatus: document.getElementById("ownerStatus"),
   logoutBtn: document.getElementById("logoutBtn"),
+  reviewModal: document.getElementById("reviewModal"),
+  reviewTitle: document.getElementById("reviewTitle"),
+  reviewMeta: document.getElementById("reviewMeta"),
+  reviewRating: document.getElementById("reviewRating"),
+  reviewList: document.getElementById("reviewList"),
+  reviewForm: document.getElementById("reviewForm"),
+  reviewStatus: document.getElementById("reviewStatus"),
+  closeReview: document.getElementById("closeReview"),
 };
 
 let supabaseClient = null;
@@ -189,6 +198,13 @@ function formatPrice(value) {
     currency: "USD",
     maximumFractionDigits: 0,
   }).format(value);
+}
+
+function renderStars(rating) {
+  const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
+  const filled = "&#9733;".repeat(Math.round(safeRating));
+  const empty = "&#9734;".repeat(5 - Math.round(safeRating));
+  return `<span class="review-stars">${filled}${empty}</span>`;
 }
 
 function loadCart() {
@@ -353,6 +369,11 @@ async function requestAdminAccess(reason) {
 function renderProducts() {
   elements.grid.innerHTML = state.filtered
     .map((product) => {
+      const reviews = state.reviews[product.id] || [];
+      const reviewAverage =
+        reviews.length > 0
+          ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
+          : product.rating;
       const safeImage = product.image_url ? product.image_url.replace(/'/g, "\\'") : "";
       const artClass = product.image_url ? "product-art has-image" : "product-art";
       const artStyle = product.image_url
@@ -367,13 +388,14 @@ function renderProducts() {
           </div>
           <div class="product-meta">
             <span class="badge">${product.badge}</span>
-            <span class="rating">&#9733; ${product.rating}</span>
+            <span class="rating">${renderStars(reviewAverage)} ${reviewAverage.toFixed(1)}</span>
           </div>
           <div class="product-meta">
             <strong>${formatPrice(product.price)}</strong>
             <span>${product.category}</span>
           </div>
           <button class="btn secondary" data-add="${product.id}">Add to cart</button>
+          <button class="btn ghost" data-review="${product.id}">Reviews</button>
         </article>
       `;
     })
@@ -575,6 +597,115 @@ function closeSetup() {
   elements.setupModal.setAttribute("aria-hidden", "true");
 }
 
+function openReviewModal(productId) {
+  const product = state.products.find((item) => item.id === productId);
+  if (!product || !elements.reviewModal) return;
+  const reviews = state.reviews[productId] || [];
+  const average =
+    reviews.length > 0
+      ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
+      : product.rating;
+
+  elements.reviewTitle.textContent = `${product.name} reviews`;
+  elements.reviewMeta.textContent = `${reviews.length} review(s)`;
+  elements.reviewRating.innerHTML = `${renderStars(average)} ${average.toFixed(1)} / 5`;
+
+  if (!reviews.length) {
+    elements.reviewList.innerHTML = "<p>No reviews yet. Be the first to review.</p>";
+  } else {
+    elements.reviewList.innerHTML = reviews
+      .map((review) => {
+        return `
+          <div class="review-item">
+            <div>${renderStars(review.rating)} ${Number(review.rating).toFixed(1)}</div>
+            <p>${review.comment || "No comment provided."}</p>
+            <small>${review.user_email || "Verified buyer"} &middot; ${new Date(
+              review.created_at
+            ).toLocaleString()}</small>
+          </div>
+        `;
+      })
+      .join("");
+  }
+
+  elements.reviewForm.dataset.productId = productId;
+  elements.reviewModal.classList.add("show");
+  elements.reviewModal.setAttribute("aria-hidden", "false");
+}
+
+function closeReviewModal() {
+  if (!elements.reviewModal) return;
+  elements.reviewModal.classList.remove("show");
+  elements.reviewModal.setAttribute("aria-hidden", "true");
+}
+
+async function loadReviews() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { data, error } = await client
+    .from("product_reviews")
+    .select("id, product_id, rating, comment, created_at, user_email")
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (error || !data) {
+    return;
+  }
+
+  state.reviews = data.reduce((acc, review) => {
+    const key = review.product_id;
+    if (!acc[key]) {
+      acc[key] = [];
+    }
+    acc[key].push(review);
+    return acc;
+  }, {});
+}
+
+async function submitReview(formData) {
+  const client = getSupabaseClient();
+  if (!client) {
+    showToast("Supabase auth not configured");
+    return;
+  }
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  if (!session?.user) {
+    setStatus(elements.reviewStatus, "Please log in to submit a review.");
+    return;
+  }
+
+  const productId = String(elements.reviewForm.dataset.productId || "");
+  const rating = Number(formData.get("rating") || 0);
+  const comment = String(formData.get("comment") || "").trim();
+
+  if (!productId || rating < 1 || rating > 5) {
+    setStatus(elements.reviewStatus, "Please select a rating between 1 and 5.");
+    return;
+  }
+
+  const payload = {
+    product_id: productId,
+    rating,
+    comment,
+    user_id: session.user.id,
+    user_email: session.user.email,
+  };
+
+  const { error } = await client.from("product_reviews").insert(payload);
+  if (error) {
+    setStatus(elements.reviewStatus, `Submit failed: ${error.message}`);
+    return;
+  }
+
+  setStatus(elements.reviewStatus, "Review submitted.");
+  elements.reviewForm.reset();
+  await loadReviews();
+  renderProducts();
+  openReviewModal(productId);
+}
+
 function initReveal() {
   const items = document.querySelectorAll("[data-reveal]");
   const observer = new IntersectionObserver(
@@ -682,6 +813,12 @@ function bindEvents() {
     addToCart(button.dataset.add);
   });
 
+  elements.grid.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-review]");
+    if (!button) return;
+    openReviewModal(button.dataset.review);
+  });
+
   elements.cartItems.addEventListener("click", (event) => {
     const button = event.target.closest("[data-remove]");
     if (!button) return;
@@ -700,6 +837,17 @@ function bindEvents() {
 
   document.getElementById("viewSetup").addEventListener("click", openSetup);
   document.getElementById("closeSetup").addEventListener("click", closeSetup);
+
+  if (elements.closeReview) {
+    elements.closeReview.addEventListener("click", closeReviewModal);
+  }
+
+  if (elements.reviewForm) {
+    elements.reviewForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await submitReview(new FormData(event.target));
+    });
+  }
 
   if (elements.buyerRegister) {
     elements.buyerRegister.addEventListener("submit", async (event) => {
@@ -795,6 +943,7 @@ async function init() {
   const supabaseProducts = await loadSupabaseProducts();
   state.products = supabaseProducts || DEFAULT_PRODUCTS;
   state.filtered = state.products;
+  await loadReviews();
   buildFilters();
   renderProducts();
   renderBundle("Creator");

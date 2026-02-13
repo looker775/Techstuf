@@ -297,3 +297,28 @@ Backend (Netlify Functions):
 The PayPal buttons call Netlify Functions at:
 - `/.netlify/functions/paypal-create-order`
 - `/.netlify/functions/paypal-capture-order`
+
+## Product reviews (stars + comments)
+Run this SQL to enable reviews:
+
+```sql
+create table if not exists public.product_reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id text not null,
+  user_id uuid references auth.users(id),
+  user_email text,
+  rating smallint not null check (rating between 1 and 5),
+  comment text,
+  created_at timestamptz default now()
+);
+
+alter table public.product_reviews enable row level security;
+
+create policy "Public can read reviews"
+on public.product_reviews for select
+using (true);
+
+create policy "Users can add reviews"
+on public.product_reviews for insert
+with check (auth.uid() = user_id);
+```
