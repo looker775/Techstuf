@@ -7,6 +7,12 @@ const elements = {
   ownerGreeting: document.getElementById("ownerGreeting"),
   ownerRoleStatus: document.getElementById("ownerRoleStatus"),
   logoutBtn: document.getElementById("logoutBtn"),
+  refreshDashboard: document.getElementById("refreshDashboard"),
+  adminRequests: document.getElementById("adminRequests"),
+  adminError: document.getElementById("adminError"),
+  pendingCount: document.getElementById("pendingCount"),
+  approvedCount: document.getElementById("approvedCount"),
+  productCount: document.getElementById("productCount"),
 };
 
 let supabaseClient = null;
@@ -21,6 +27,23 @@ function getSupabaseClient() {
 function setText(element, message) {
   if (!element) return;
   element.textContent = message;
+}
+
+function setHidden(element, hidden) {
+  if (!element) return;
+  element.hidden = hidden;
+}
+
+function formatDate(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleString();
+}
+
+function statusBadge(status) {
+  const safeStatus = status || "pending";
+  return `<span class="status-pill ${safeStatus}">${safeStatus}</span>`;
 }
 
 async function getUserRole(userId) {
@@ -39,14 +62,15 @@ async function guardOwnerAccess() {
   const client = getSupabaseClient();
   if (!client) {
     setText(elements.ownerGreeting, "Auth not configured.");
-    return;
+    setText(elements.ownerRoleStatus, "Missing Supabase config.");
+    return null;
   }
 
   const { data } = await client.auth.getSession();
   const session = data?.session;
   if (!session?.user) {
     window.location.href = "/kali";
-    return;
+    return null;
   }
 
   const user = session.user;
@@ -55,22 +79,175 @@ async function guardOwnerAccess() {
 
   if (!isOwner) {
     window.location.href = "/kali";
-    return;
+    return null;
   }
 
   setText(elements.ownerGreeting, `Welcome back, ${user.email}.`);
   setText(elements.ownerRoleStatus, "Owner access granted.");
+  return user;
+}
+
+async function loadProductCount() {
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { count, error } = await client
+    .from("products")
+    .select("id", { count: "exact", head: true });
+  if (error) {
+    setText(elements.productCount, "--");
+    return;
+  }
+  setText(elements.productCount, String(count || 0));
+}
+
+async function loadAdminRequests() {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from("admin_requests")
+    .select("id, user_id, email, reason, status, created_at")
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    setText(elements.adminError, "Admin requests not accessible. Add owner policies in Supabase.");
+    setHidden(elements.adminError, false);
+    if (elements.adminRequests) {
+      elements.adminRequests.innerHTML = "";
+    }
+    return;
+  }
+
+  setHidden(elements.adminError, true);
+
+  const requests = data || [];
+  const pending = requests.filter((item) => item.status === "pending");
+  const approved = requests.filter((item) => item.status === "approved");
+
+  setText(elements.pendingCount, String(pending.length));
+  setText(elements.approvedCount, String(approved.length));
+
+  if (!elements.adminRequests) return;
+
+  if (!requests.length) {
+    elements.adminRequests.innerHTML =
+      "<tr><td colspan=\"5\">No admin requests yet.</td></tr>";
+    return;
+  }
+
+  elements.adminRequests.innerHTML = requests
+    .map((request) => {
+      const actions =
+        request.status === "pending"
+          ? `
+            <button class=\"action-btn approve\" data-action=\"approve\" data-id=\"${request.id}\" data-user=\"${request.user_id}\">Approve</button>
+            <button class=\"action-btn reject\" data-action=\"reject\" data-id=\"${request.id}\" data-user=\"${request.user_id}\">Reject</button>
+          `
+          : "--";
+
+      return `
+        <tr>
+          <td>${request.email}</td>
+          <td>${request.reason || "--"}</td>
+          <td>${statusBadge(request.status)}</td>
+          <td>${formatDate(request.created_at)}</td>
+          <td>${actions}</td>
+        </tr>
+      `;
+    })
+    .join("");
+}
+
+async function approveAdmin(requestId, userId) {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { error: requestError } = await client
+    .from("admin_requests")
+    .update({ status: "approved" })
+    .eq("id", requestId);
+
+  if (requestError) {
+    alert(`Failed to approve: ${requestError.message}`);
+    return;
+  }
+
+  if (userId) {
+    const { error: roleError } = await client
+      .from("profiles")
+      .update({ role: "admin" })
+      .eq("id", userId);
+
+    if (roleError) {
+      alert(`Approved request, but failed to set role: ${roleError.message}`);
+    }
+  }
+
+  loadAdminRequests();
+}
+
+async function rejectAdmin(requestId, userId) {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { error: requestError } = await client
+    .from("admin_requests")
+    .update({ status: "rejected" })
+    .eq("id", requestId);
+
+  if (requestError) {
+    alert(`Failed to reject: ${requestError.message}`);
+    return;
+  }
+
+  if (userId) {
+    await client.from("profiles").update({ role: "buyer" }).eq("id", userId);
+  }
+
+  loadAdminRequests();
 }
 
 function bindEvents() {
-  if (!elements.logoutBtn) return;
-  elements.logoutBtn.addEventListener("click", async () => {
-    const client = getSupabaseClient();
-    if (!client) return;
-    await client.auth.signOut();
-    window.location.href = "/kali";
-  });
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener("click", async () => {
+      const client = getSupabaseClient();
+      if (!client) return;
+      await client.auth.signOut();
+      window.location.href = "/kali";
+    });
+  }
+
+  if (elements.refreshDashboard) {
+    elements.refreshDashboard.addEventListener("click", () => {
+      loadAdminRequests();
+      loadProductCount();
+    });
+  }
+
+  if (elements.adminRequests) {
+    elements.adminRequests.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const action = button.dataset.action;
+      const requestId = button.dataset.id;
+      const userId = button.dataset.user;
+      if (action === "approve") {
+        approveAdmin(requestId, userId);
+      }
+      if (action === "reject") {
+        rejectAdmin(requestId, userId);
+      }
+    });
+  }
+}
+
+async function initDashboard() {
+  const owner = await guardOwnerAccess();
+  if (!owner) return;
+  await loadAdminRequests();
+  await loadProductCount();
 }
 
 bindEvents();
-guardOwnerAccess();
+initDashboard();

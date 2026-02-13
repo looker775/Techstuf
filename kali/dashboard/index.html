@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -10,8 +10,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../../styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-    <script defer src="../../config.js?v=20260213c"></script>
-    <script defer src="../../owner.js?v=20260213c"></script>
+    <script defer src="../../config.js?v=20260213d"></script>
+    <script defer src="../../owner.js?v=20260213d"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -32,21 +32,69 @@
     </header>
 
     <main>
-      <section class="support" data-reveal>
-        <div class="support-card light">
-          <h2>Owner access</h2>
-          <p id="ownerGreeting">Checking owner session...</p>
-          <div class="auth-status" id="ownerRoleStatus">Status pending.</div>
-          <button class="btn secondary" id="logoutBtn" type="button">Sign out</button>
+      <section class="dashboard" data-reveal>
+        <div class="dashboard-header">
+          <div>
+            <h2>Owner control center</h2>
+            <p id="ownerGreeting">Checking owner session...</p>
+          </div>
+          <div class="dashboard-actions">
+            <button class="btn ghost" id="refreshDashboard" type="button">Refresh</button>
+            <button class="btn secondary" id="logoutBtn" type="button">Sign out</button>
+          </div>
         </div>
-        <div class="support-card">
-          <h3>Admin approvals</h3>
-          <p>Approve admin requests in Supabase:</p>
-          <ul>
-            <li>Open table: <strong>admin_requests</strong></li>
-            <li>Set <code>status</code> to <code>approved</code></li>
-            <li>Update user role in <strong>profiles</strong></li>
-          </ul>
+
+        <div class="stat-grid">
+          <div class="stat-card">
+            <span>Pending admin requests</span>
+            <strong id="pendingCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Approved admins</span>
+            <strong id="approvedCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Catalog products</span>
+            <strong id="productCount">0</strong>
+          </div>
+          <div class="stat-card">
+            <span>Owner status</span>
+            <strong id="ownerRoleStatus">Owner access</strong>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Admin approvals</h3>
+            <p>Approve or reject admin access requests.</p>
+          </div>
+          <div id="adminError" class="auth-status" hidden></div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Email</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                  <th>Requested</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="adminRequests"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Quick actions</h3>
+            <p>Jump to core services.</p>
+          </div>
+          <div class="quick-actions">
+            <a class="btn ghost" href="https://supabase.com/dashboard" target="_blank" rel="noreferrer">Supabase dashboard</a>
+            <a class="btn ghost" href="https://app.netlify.com/" target="_blank" rel="noreferrer">Netlify deploys</a>
+            <a class="btn ghost" href="https://github.com/looker775/Techstuf" target="_blank" rel="noreferrer">GitHub repo</a>
+          </div>
         </div>
       </section>
     </main>

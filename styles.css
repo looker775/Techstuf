@@ -856,4 +856,134 @@ main,
     transition-duration: 0.01ms !important;
   }
 }
-\n\n.auth-helper {\n  font-size: 0.8rem;\n  color: var(--muted);\n}\n
+
+.auth-helper {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.dashboard {
+  padding: 2rem 8vw 4rem;
+  display: grid;
+  gap: 2rem;
+}
+
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.dashboard-actions {
+  display: flex;
+  gap: 0.8rem;
+  flex-wrap: wrap;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.stat-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius-sm);
+  padding: 1.2rem;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.stat-card strong {
+  font-size: 1.6rem;
+  font-family: "Space Grotesk", sans-serif;
+}
+
+.dashboard-panel {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: var(--radius);
+  padding: 1.6rem;
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 1rem;
+}
+
+.panel-header h3 {
+  font-family: "Space Grotesk", sans-serif;
+  margin-bottom: 0.4rem;
+}
+
+.table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.data-table th,
+.data-table td {
+  text-align: left;
+  padding: 0.7rem 0.6rem;
+  border-bottom: 1px solid rgba(12, 18, 21, 0.08);
+}
+
+.status-pill {
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+  background: rgba(12, 18, 21, 0.1);
+}
+
+.status-pill.pending {
+  background: rgba(255, 178, 120, 0.3);
+}
+
+.status-pill.approved {
+  background: rgba(28, 184, 166, 0.25);
+}
+
+.status-pill.rejected {
+  background: rgba(233, 92, 92, 0.2);
+}
+
+.action-btn {
+  border: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  margin-right: 0.4rem;
+}
+
+.action-btn.approve {
+  background: rgba(28, 184, 166, 0.8);
+  color: #ffffff;
+}
+
+.action-btn.reject {
+  background: rgba(233, 92, 92, 0.9);
+  color: #ffffff;
+}
+
+.quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+@media (max-width: 720px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

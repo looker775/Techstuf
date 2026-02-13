@@ -105,6 +105,47 @@ set status = 'approved'
 where email = 'admin@example.com';
 ```
 
+Owner dashboard approvals require these additional RLS policies:
+
+```sql
+create policy "Owner can view profiles"
+on public.profiles for select
+using (
+  auth.uid() = id
+  or exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'owner'
+  )
+);
+
+create policy "Owner can update profiles"
+on public.profiles for update
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'owner'
+  )
+);
+
+create policy "Owner can view admin requests"
+on public.admin_requests for select
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'owner'
+  )
+);
+
+create policy "Owner can update admin requests"
+on public.admin_requests for update
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'owner'
+  )
+);
+```
+
 ## PayPal setup
 Frontend (public):
 - Set `PAYPAL_CLIENT_ID` inside `app.js` to your PayPal client ID.
