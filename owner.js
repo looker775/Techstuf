@@ -15,6 +15,15 @@ const elements = {
   pendingCount: document.getElementById("pendingCount"),
   approvedCount: document.getElementById("approvedCount"),
   productCount: document.getElementById("productCount"),
+  productForm: document.getElementById("productForm"),
+  productStatus: document.getElementById("productStatus"),
+  categoryForm: document.getElementById("categoryForm"),
+  categoryStatus: document.getElementById("categoryStatus"),
+  subcategoryForm: document.getElementById("subcategoryForm"),
+  subcategoryStatus: document.getElementById("subcategoryStatus"),
+  productCategorySelect: document.getElementById("productCategorySelect"),
+  productSubcategorySelect: document.getElementById("productSubcategorySelect"),
+  subcategoryCategorySelect: document.getElementById("subcategoryCategorySelect"),
 };
 
 let supabaseClient = null;
@@ -46,6 +55,64 @@ function formatDate(value) {
 function statusBadge(status) {
   const safeStatus = status || "pending";
   return `<span class="status-pill ${safeStatus}">${safeStatus}</span>`;
+}
+
+async function loadCategories() {
+  const client = getSupabaseClient();
+  if (!client) return [];
+  const { data, error } = await client
+    .from("categories")
+    .select("id, name")
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (error) {
+    return [];
+  }
+  return data || [];
+}
+
+async function loadSubcategories(categoryId) {
+  const client = getSupabaseClient();
+  if (!client) return [];
+  if (!categoryId) return [];
+  const { data, error } = await client
+    .from("subcategories")
+    .select("id, name")
+    .eq("category_id", categoryId)
+    .eq("active", true)
+    .order("name", { ascending: true });
+  if (error) {
+    return [];
+  }
+  return data || [];
+}
+
+function fillSelect(select, options, placeholder) {
+  if (!select) return;
+  select.innerHTML = "";
+  const placeholderOption = document.createElement("option");
+  placeholderOption.value = "";
+  placeholderOption.textContent = placeholder;
+  select.appendChild(placeholderOption);
+  options.forEach((item) => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.name;
+    select.appendChild(option);
+  });
+}
+
+async function refreshCatalogLists() {
+  const categories = await loadCategories();
+  fillSelect(elements.productCategorySelect, categories, "Select category (optional)");
+  fillSelect(elements.subcategoryCategorySelect, categories, "Select category");
+
+  if (elements.productCategorySelect && elements.productCategorySelect.value) {
+    const subs = await loadSubcategories(elements.productCategorySelect.value);
+    fillSelect(elements.productSubcategorySelect, subs, "Select subcategory (optional)");
+  } else {
+    fillSelect(elements.productSubcategorySelect, [], "Select subcategory (optional)");
+  }
 }
 
 async function getUserRole(userId) {
@@ -226,6 +293,101 @@ async function updateAdminPermission(adminId, field, value) {
   }
 }
 
+async function handleProductSubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const name = String(formData.get("name") || "").trim();
+  const price = Number(formData.get("price") || 0);
+  const rating = Number(formData.get("rating") || 4.5);
+  const badge = String(formData.get("badge") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+  const imageHue = Number(formData.get("image_hue") || 140);
+  const categoryText = String(formData.get("category_text") || "").trim();
+  const categoryId = String(formData.get("category_id") || "");
+  const subcategoryId = String(formData.get("subcategory_id") || "");
+
+  if (!name || !price) {
+    setText(elements.productStatus, "Name and price are required.");
+    return;
+  }
+
+  const payload = {
+    name,
+    price,
+    rating,
+    badge,
+    description,
+    image_hue: imageHue,
+    category: categoryText || undefined,
+    category_id: categoryId || null,
+    subcategory_id: subcategoryId || null,
+    active: true,
+  };
+
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { error } = await client.from("products").insert(payload);
+  if (error) {
+    setText(elements.productStatus, `Publish failed: ${error.message}`);
+    return;
+  }
+
+  setText(elements.productStatus, "Product published successfully.");
+  event.target.reset();
+}
+
+async function handleCategorySubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const name = String(formData.get("name") || "").trim();
+  const description = String(formData.get("description") || "").trim();
+
+  if (!name) {
+    setText(elements.categoryStatus, "Category name is required.");
+    return;
+  }
+
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { error } = await client.from("categories").insert({ name, description, active: true });
+  if (error) {
+    setText(elements.categoryStatus, `Failed: ${error.message}`);
+    return;
+  }
+
+  setText(elements.categoryStatus, "Category created.");
+  event.target.reset();
+  await refreshCatalogLists();
+}
+
+async function handleSubcategorySubmit(event) {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  const name = String(formData.get("name") || "").trim();
+  const categoryId = String(formData.get("category_id") || "");
+  const description = String(formData.get("description") || "").trim();
+
+  if (!name || !categoryId) {
+    setText(elements.subcategoryStatus, "Subcategory name and category are required.");
+    return;
+  }
+
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { error } = await client
+    .from("subcategories")
+    .insert({ name, category_id: categoryId, description, active: true });
+  if (error) {
+    setText(elements.subcategoryStatus, `Failed: ${error.message}`);
+    return;
+  }
+
+  setText(elements.subcategoryStatus, "Subcategory created.");
+  event.target.reset();
+  await refreshCatalogLists();
+}
+
 async function approveAdmin(requestId, userId) {
   const client = getSupabaseClient();
   if (!client) return;
@@ -305,6 +467,7 @@ function bindEvents() {
     elements.refreshDashboard.addEventListener("click", () => {
       loadAdminRequests();
       loadAdminPermissions();
+      refreshCatalogLists();
       loadProductCount();
     });
   }
@@ -335,6 +498,25 @@ function bindEvents() {
       updateAdminPermission(adminId, field, value);
     });
   }
+
+  if (elements.productForm) {
+    elements.productForm.addEventListener("submit", handleProductSubmit);
+  }
+
+  if (elements.categoryForm) {
+    elements.categoryForm.addEventListener("submit", handleCategorySubmit);
+  }
+
+  if (elements.subcategoryForm) {
+    elements.subcategoryForm.addEventListener("submit", handleSubcategorySubmit);
+  }
+
+  if (elements.productCategorySelect) {
+    elements.productCategorySelect.addEventListener("change", async (event) => {
+      const subs = await loadSubcategories(event.target.value);
+      fillSelect(elements.productSubcategorySelect, subs, "Select subcategory (optional)");
+    });
+  }
 }
 
 async function initDashboard() {
@@ -342,6 +524,7 @@ async function initDashboard() {
   if (!owner) return;
   await loadAdminRequests();
   await loadAdminPermissions();
+  await refreshCatalogLists();
   await loadProductCount();
 }
 
