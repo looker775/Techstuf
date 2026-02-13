@@ -496,13 +496,17 @@ function renderProducts() {
       const reviewAverage =
         reviews.length > 0
           ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
-          : product.rating;
+          : null;
       const safeImage = product.image_url ? product.image_url.replace(/'/g, "\\'") : "";
       const artClass = product.image_url ? "product-art has-image" : "product-art";
       const artStyle = product.image_url
         ? `background-image: url('${safeImage}');`
         : `--hue: ${product.hue}`;
       const displayCategory = product.categoryName || product.category || t("product.default_category", "Gear");
+      const ratingLabel =
+        reviewAverage === null
+          ? t("rating.none", "No ratings yet")
+          : `${renderStars(reviewAverage)} ${reviewAverage.toFixed(1)}`;
       return `
         <article class="product-card" data-id="${product.id}">
           <div class="${artClass}" style="${artStyle}">${displayCategory}</div>
@@ -512,7 +516,7 @@ function renderProducts() {
           </div>
           <div class="product-meta">
             <span class="badge">${product.badge}</span>
-            <span class="rating">${renderStars(reviewAverage)} ${reviewAverage.toFixed(1)}</span>
+            <span class="rating">${ratingLabel}</span>
           </div>
           <div class="product-meta">
             <strong>${formatPrice(product.price)}</strong>
@@ -789,7 +793,11 @@ function openReviewModal(productId) {
     name: product.name,
   });
   elements.reviewMeta.textContent = t("review.count", "{{count}} review(s)", { count: reviews.length });
-  elements.reviewRating.innerHTML = `${renderStars(average)} ${average.toFixed(1)} / 5`;
+  const averageLabel =
+    reviews.length > 0
+      ? `${renderStars(average)} ${average.toFixed(1)} / 5`
+      : t("rating.none", "No ratings yet");
+  elements.reviewRating.innerHTML = averageLabel;
 
   if (!reviews.length) {
     elements.reviewList.innerHTML = `<p>${t("review.no_reviews", "No reviews yet. Be the first to review.")}</p>`;

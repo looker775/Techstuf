@@ -302,6 +302,9 @@
         default_badge: "Live",
         default_desc: "Supabase item",
       },
+      rating: {
+        none: "No ratings yet",
+      },
       status: {
         auth_missing: "Auth not configured.",
         admin_requires: "Admin access requires approval.",
@@ -584,6 +587,9 @@
         default_category: "Техника",
         default_badge: "В наличии",
         default_desc: "Товар из Supabase",
+      },
+      rating: {
+        none: "Оценок пока нет",
       },
       status: {
         auth_missing: "Авторизация не настроена.",

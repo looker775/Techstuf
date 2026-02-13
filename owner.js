@@ -685,7 +685,6 @@ async function handleProductSubmit(event) {
   const formData = new FormData(event.target);
   const name = String(formData.get("name") || "").trim();
   const price = Number(formData.get("price") || 0);
-  const rating = Number(formData.get("rating") || 4.5);
   const badge = String(formData.get("badge") || "").trim();
   const description = String(formData.get("description") || "").trim();
   const imageFile = formData.get("image_file");
@@ -731,7 +730,6 @@ async function handleProductSubmit(event) {
   const payload = {
     name,
     price,
-    rating,
     badge,
     description,
     image_url: imageUrl,
