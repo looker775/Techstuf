@@ -178,6 +178,8 @@ const elements = {
   buyerRegister: document.getElementById("buyerRegister"),
   buyerLogin: document.getElementById("buyerLogin"),
   buyerStatus: document.getElementById("buyerStatus"),
+  buyerAccountForm: document.getElementById("buyerAccountForm"),
+  buyerAccountStatus: document.getElementById("buyerAccountStatus"),
   adminRegister: document.getElementById("adminRegister"),
   adminLogin: document.getElementById("adminLogin"),
   adminStatus: document.getElementById("adminStatus"),
@@ -808,6 +810,70 @@ async function submitReview(formData) {
   openReviewModal(productId);
 }
 
+async function handleBuyerAccountUpdate(event) {
+  event.preventDefault();
+  const client = getSupabaseClient();
+  if (!client) {
+    setStatus(elements.buyerAccountStatus, t("status.auth_missing", "Auth not configured."));
+    return;
+  }
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  if (!session?.user) {
+    setStatus(elements.buyerAccountStatus, t("status.not_signed_in", "Not signed in."));
+    return;
+  }
+
+  const formData = new FormData(event.target);
+  const newEmail = String(formData.get("new_email") || "").trim();
+  const newPassword = String(formData.get("new_password") || "");
+  const confirmPassword = String(formData.get("confirm_password") || "");
+
+  if (!newEmail && !newPassword) {
+    setStatus(
+      elements.buyerAccountStatus,
+      t("status.account_update_missing", "Enter a new email or password.")
+    );
+    return;
+  }
+
+  if (newPassword && newPassword.length < 6) {
+    setStatus(
+      elements.buyerAccountStatus,
+      t("status.account_update_password_short", "Password must be at least 6 characters.")
+    );
+    return;
+  }
+
+  if (newPassword && newPassword !== confirmPassword) {
+    setStatus(
+      elements.buyerAccountStatus,
+      t("status.account_update_password_mismatch", "Password confirmation does not match.")
+    );
+    return;
+  }
+
+  const updateData = {};
+  if (newEmail) updateData.email = newEmail;
+  if (newPassword) updateData.password = newPassword;
+
+  const { error } = await client.auth.updateUser(updateData);
+  if (error) {
+    setStatus(elements.buyerAccountStatus, error.message);
+    return;
+  }
+
+  setStatus(
+    elements.buyerAccountStatus,
+    t(
+      "status.account_update_success",
+      "Update requested. Check your email to confirm changes if prompted."
+    )
+  );
+  event.target.reset();
+}
+
 function setChatStatus(message) {
   if (!elements.chatStatus) return;
   elements.chatStatus.textContent = message;
@@ -1212,6 +1278,10 @@ function bindEvents() {
         refreshAuthStatus();
       }
     });
+  }
+
+  if (elements.buyerAccountForm) {
+    elements.buyerAccountForm.addEventListener("submit", handleBuyerAccountUpdate);
   }
 
   if (elements.adminRegister) {
