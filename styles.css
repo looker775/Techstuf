@@ -836,6 +836,10 @@ main,
   font-family: inherit;
 }
 
+input[type="file"] {
+  font-family: inherit;
+}
+
 .setup-modal {
   position: fixed;
   inset: 0;

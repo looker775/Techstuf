@@ -284,6 +284,40 @@ with check (
 Admin console:
 - Visit `/kali/admin/` after your admin account is approved.
 
+## Media uploads (image/video files)
+Create a public storage bucket named `product-media` in Supabase Storage.
+
+Then run these policies:
+
+```sql
+create policy "Public read product media"
+on storage.objects for select
+using (bucket_id = 'product-media');
+
+create policy "Owner upload product media"
+on storage.objects for insert
+with check (
+  bucket_id = 'product-media'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'owner'
+  )
+);
+
+create policy "Admin upload product media"
+on storage.objects for insert
+with check (
+  bucket_id = 'product-media'
+  and exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid()
+      and p.role = 'admin'
+      and p.is_active = true
+      and p.can_publish_products = true
+  )
+);
+```
+
 ## PayPal setup
 Frontend (public):
 - Set `PAYPAL_CLIENT_ID` inside `app.js` to your PayPal client ID.

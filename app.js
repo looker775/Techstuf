@@ -628,6 +628,10 @@ function openReviewModal(productId) {
       .join("");
   }
 
+  if (product.video_url) {
+    elements.reviewMeta.innerHTML += ` · <a href="${product.video_url}" target="_blank" rel="noreferrer">View video</a>`;
+  }
+
   elements.reviewForm.dataset.productId = productId;
   elements.reviewModal.classList.add("show");
   elements.reviewModal.setAttribute("aria-hidden", "false");

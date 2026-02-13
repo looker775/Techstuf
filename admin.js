@@ -2,6 +2,7 @@
 const SUPABASE_URL = TECHSTUF_CONFIG.SUPABASE_URL || "";
 const SUPABASE_ANON_KEY = TECHSTUF_CONFIG.SUPABASE_ANON_KEY || "";
 const OWNER_EMAIL = (TECHSTUF_CONFIG.OWNER_EMAIL || "").toLowerCase();
+const MEDIA_BUCKET = TECHSTUF_CONFIG.MEDIA_BUCKET || "product-media";
 
 const elements = {
   adminGreeting: document.getElementById("adminGreeting"),
@@ -166,6 +167,33 @@ async function refreshCatalogLists() {
   }
 }
 
+function buildFileName(file, folder) {
+  const cleanName = file.name ? file.name.replace(/\s+/g, "-") : "upload";
+  const ext = cleanName.includes(".") ? cleanName.split(".").pop() : "";
+  const base = typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now();
+  return `${folder}/${base}${ext ? "." + ext : ""}`;
+}
+
+async function uploadMedia(file, folder) {
+  if (!file) return null;
+  const client = getSupabaseClient();
+  if (!client) return null;
+
+  const fileName = buildFileName(file, folder);
+  const { error } = await client.storage.from(MEDIA_BUCKET).upload(fileName, file, {
+    cacheControl: "3600",
+    upsert: false,
+    contentType: file.type || undefined,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const { data } = client.storage.from(MEDIA_BUCKET).getPublicUrl(fileName);
+  return data?.publicUrl || null;
+}
+
 async function handleProductSubmit(event) {
   event.preventDefault();
   if (!permissions.canPublishProducts) {
@@ -179,8 +207,8 @@ async function handleProductSubmit(event) {
   const rating = Number(formData.get("rating") || 4.5);
   const badge = String(formData.get("badge") || "").trim();
   const description = String(formData.get("description") || "").trim();
-  const imageUrl = String(formData.get("image_url") || "").trim();
-  const videoUrl = String(formData.get("video_url") || "").trim();
+  const imageFile = formData.get("image_file");
+  const videoFile = formData.get("video_file");
   const categoryText = String(formData.get("category_text") || "").trim();
   const categoryId = String(formData.get("category_id") || "");
   const subcategoryId = String(formData.get("subcategory_id") || "");
@@ -190,14 +218,29 @@ async function handleProductSubmit(event) {
     return;
   }
 
+  let imageUrl = null;
+  let videoUrl = null;
+
+  try {
+    if (imageFile && imageFile.size) {
+      imageUrl = await uploadMedia(imageFile, "images");
+    }
+    if (videoFile && videoFile.size) {
+      videoUrl = await uploadMedia(videoFile, "videos");
+    }
+  } catch (error) {
+    setText(elements.productStatus, `Upload failed: ${error.message}`);
+    return;
+  }
+
   const payload = {
     name,
     price,
     rating,
     badge,
     description,
-    image_url: imageUrl || null,
-    video_url: videoUrl || null,
+    image_url: imageUrl,
+    video_url: videoUrl,
     category: categoryText || undefined,
     category_id: categoryId || null,
     subcategory_id: subcategoryId || null,
