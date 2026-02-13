@@ -781,6 +781,11 @@
       // ignore storage errors
     }
 
+    const preferredLang = getPreferredLanguage();
+    if (preferredLang && preferredLang !== "en") {
+      return preferredLang;
+    }
+
     const geoOverride = readGeoOverride();
     if (geoOverride?.countryCode) {
       const mapped = mapCountryToLanguage(geoOverride.countryCode);
@@ -801,7 +806,7 @@
     const mapped = mapCountryToLanguage(detectedCountry);
     if (mapped) return resolveLanguage(mapped);
 
-    return getPreferredLanguage();
+    return preferredLang || "en";
   }
 
   function getLocale() {
