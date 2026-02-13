@@ -186,14 +186,14 @@ function fillSelect(select, options, placeholder) {
 
 async function refreshCatalogLists() {
   const categories = await loadCategories();
-  fillSelect(elements.productCategorySelect, categories, "Select category (optional)");
+  fillSelect(elements.productCategorySelect, categories, "Select category");
   fillSelect(elements.subcategoryCategorySelect, categories, "Select category");
 
   if (elements.productCategorySelect && elements.productCategorySelect.value) {
     const subs = await loadSubcategories(elements.productCategorySelect.value);
-    fillSelect(elements.productSubcategorySelect, subs, "Select subcategory (optional)");
+    fillSelect(elements.productSubcategorySelect, subs, "Select subcategory");
   } else {
-    fillSelect(elements.productSubcategorySelect, [], "Select subcategory (optional)");
+    fillSelect(elements.productSubcategorySelect, [], "Select subcategory");
   }
 }
 
@@ -687,6 +687,16 @@ async function handleProductSubmit(event) {
 
   if (!name || !price) {
     setText(elements.productStatus, "Name and price are required.");
+    return;
+  }
+
+  if (!categoryId) {
+    setText(elements.productStatus, "Please select a category.");
+    return;
+  }
+
+  if (!subcategoryId) {
+    setText(elements.productStatus, "Please select a subcategory.");
     return;
   }
 
