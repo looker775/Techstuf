@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Techstuf | Owner Dashboard</title>
+    <meta name="description" content="Owner dashboard for Techstuf." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../../styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script defer src="../../config.js?v=20260213c"></script>
+    <script defer src="../../owner.js?v=20260213c"></script>
+  </head>
+  <body>
+    <div class="page-glow"></div>
+    <div class="grain"></div>
+
+    <header class="site-header">
+      <div class="brand">
+        <div class="logo">TS</div>
+        <div class="brand-text">
+          <span>Techstuf</span>
+          <small>Owner dashboard</small>
+        </div>
+      </div>
+      <nav class="site-nav">
+        <a href="/">Back to store</a>
+        <a href="/kali">Admin login</a>
+      </nav>
+    </header>
+
+    <main>
+      <section class="support" data-reveal>
+        <div class="support-card light">
+          <h2>Owner access</h2>
+          <p id="ownerGreeting">Checking owner session...</p>
+          <div class="auth-status" id="ownerRoleStatus">Status pending.</div>
+          <button class="btn secondary" id="logoutBtn" type="button">Sign out</button>
+        </div>
+        <div class="support-card">
+          <h3>Admin approvals</h3>
+          <p>Approve admin requests in Supabase:</p>
+          <ul>
+            <li>Open table: <strong>admin_requests</strong></li>
+            <li>Set <code>status</code> to <code>approved</code></li>
+            <li>Update user role in <strong>profiles</strong></li>
+          </ul>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

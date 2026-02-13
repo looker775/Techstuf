@@ -11,6 +11,14 @@ const elements = {
   logoutBtn: document.getElementById("logoutBtn"),
 };
 
+const DASHBOARD_PATH = "/kali/dashboard/";
+
+function redirectToDashboard() {
+  if (!window.location.pathname.startsWith(DASHBOARD_PATH)) {
+    window.location.href = DASHBOARD_PATH;
+  }
+}
+
 let supabaseClient = null;
 
 function getSupabaseClient() {
@@ -81,6 +89,7 @@ async function refreshAuthStatus() {
     if (OWNER_EMAIL && user.email.toLowerCase() === OWNER_EMAIL) {
       setStatus(elements.adminStatus, "Owner logged in.");
       setStatus(elements.ownerStatus, `Owner access granted: ${user.email}`);
+      redirectToDashboard();
       return;
     }
 
@@ -98,6 +107,7 @@ async function refreshAuthStatus() {
   if (role === "owner") {
     setStatus(elements.adminStatus, "Owner logged in.");
     setStatus(elements.ownerStatus, `Owner access granted: ${user.email}`);
+    redirectToDashboard();
   } else if (role === "admin") {
     setStatus(elements.adminStatus, `Admin access granted: ${user.email}`);
     setStatus(elements.ownerStatus, "Owner access only.");
