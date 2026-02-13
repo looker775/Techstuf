@@ -37,6 +37,7 @@ create extension if not exists "pgcrypto";
 create table public.profiles (
   id uuid primary key references auth.users on delete cascade,
   email text unique,
+  full_name text,
   role text default 'buyer',
   created_at timestamptz default now()
 );
@@ -68,8 +69,8 @@ using (auth.uid() = user_id);
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, role)
-  values (new.id, new.email, 'buyer')
+  insert into public.profiles (id, email, full_name, role)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'buyer')
   on conflict (id) do nothing;
   return new;
 end;
@@ -79,6 +80,23 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
 after insert on auth.users
 for each row execute procedure public.handle_new_user();
+```
+
+If `profiles` already exists, run:
+
+```sql
+alter table public.profiles
+  add column if not exists full_name text;
+
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, full_name, role)
+  values (new.id, new.email, new.raw_user_meta_data->>'full_name', 'buyer')
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
 ```
 
 Owner setup:
@@ -406,4 +424,123 @@ using (true);
 create policy "Users can add reviews"
 on public.product_reviews for insert
 with check (auth.uid() = user_id);
+```
+
+## Support chat (buyers + admins + owner)
+Run this SQL to enable the support chat tables and policies:
+
+```sql
+create table if not exists public.support_threads (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users on delete cascade,
+  user_email text,
+  user_name text,
+  status text default 'open',
+  last_message_at timestamptz default now(),
+  created_at timestamptz default now()
+);
+
+create table if not exists public.support_messages (
+  id uuid primary key default gen_random_uuid(),
+  thread_id uuid references public.support_threads(id) on delete cascade,
+  sender_id uuid references auth.users(id),
+  sender_role text default 'buyer',
+  sender_name text,
+  sender_email text,
+  message text not null,
+  created_at timestamptz default now()
+);
+
+alter table public.support_threads enable row level security;
+alter table public.support_messages enable row level security;
+
+create policy "Users can view own threads"
+on public.support_threads for select
+using (auth.uid() = user_id);
+
+create policy "Users can create own threads"
+on public.support_threads for insert
+with check (auth.uid() = user_id);
+
+create policy "Users can update own threads"
+on public.support_threads for update
+using (auth.uid() = user_id);
+
+create policy "Users can view own messages"
+on public.support_messages for select
+using (
+  exists (
+    select 1 from public.support_threads t
+    where t.id = thread_id and t.user_id = auth.uid()
+  )
+);
+
+create policy "Users can send messages"
+on public.support_messages for insert
+with check (
+  exists (
+    select 1 from public.support_threads t
+    where t.id = thread_id and t.user_id = auth.uid()
+  )
+);
+
+create policy "Owner can read threads"
+on public.support_threads for select
+using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Owner can update threads"
+on public.support_threads for update
+using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Owner can read messages"
+on public.support_messages for select
+using (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Owner can send messages"
+on public.support_messages for insert
+with check (
+  exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'owner')
+);
+
+create policy "Admins can read threads"
+on public.support_threads for select
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin' and p.is_active = true
+  )
+);
+
+create policy "Admins can update threads"
+on public.support_threads for update
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin' and p.is_active = true
+  )
+);
+
+create policy "Admins can read messages"
+on public.support_messages for select
+using (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin' and p.is_active = true
+  )
+);
+
+create policy "Admins can send messages"
+on public.support_messages for insert
+with check (
+  exists (
+    select 1 from public.profiles p
+    where p.id = auth.uid() and p.role = 'admin' and p.is_active = true
+  )
+);
 ```

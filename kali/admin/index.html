@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="../../styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js?v=20260213g"></script>
-    <script defer src="../../i18n.js?v=20260213i"></script>
-    <script defer src="../../admin.js?v=20260213i"></script>
+    <script defer src="../../i18n.js?v=20260213j"></script>
+    <script defer src="../../admin.js?v=20260213j"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -121,6 +121,28 @@
             </table>
           </div>
           <div class="auth-status" id="salesStatus" data-i18n="analytics.loading">Loading sales data...</div>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3 data-i18n="chat.inbox_title">Support inbox</h3>
+            <p data-i18n="chat.inbox_desc">Respond to customer messages.</p>
+          </div>
+          <div class="chat-layout">
+            <div class="chat-threads" id="chatThreads"></div>
+            <div class="chat-window">
+              <div class="chat-window-header">
+                <strong id="chatThreadTitle">Select a chat</strong>
+                <span id="chatThreadMeta"></span>
+              </div>
+              <div class="chat-messages" id="chatMessages"></div>
+              <form class="chat-reply" id="chatReplyForm">
+                <textarea name="message" rows="2" placeholder="Type a reply" required data-i18n-placeholder="chat.reply_placeholder"></textarea>
+                <button class="btn secondary" type="submit" data-i18n="chat.send">Send message</button>
+              </form>
+              <div class="auth-status" id="chatStatus" data-i18n="chat.inbox_hint">Select a thread to reply.</div>
+            </div>
+          </div>
         </div>
 
         <div class="dashboard-panel">

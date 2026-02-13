@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="config.js?v=20260213b"></script>
-    <script defer src="i18n.js?v=20260213i"></script>
-    <script defer src="app.js?v=20260213i"></script>
+    <script defer src="i18n.js?v=20260213j"></script>
+    <script defer src="app.js?v=20260213j"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -207,6 +207,7 @@
           <h2 data-i18n="auth.buyer_title">Buyer account</h2>
           <p data-i18n="auth.buyer_desc">Create an account to track orders and speed up checkout.</p>
           <form id="buyerRegister">
+            <input type="text" name="full_name" placeholder="Full name" required data-i18n-placeholder="auth.full_name_placeholder" />
             <input type="email" name="email" placeholder="Email address" required data-i18n-placeholder="auth.email_placeholder" />
             <input type="password" name="password" placeholder="Create password" minlength="6" required data-i18n-placeholder="auth.create_password_placeholder" />
             <button class="btn secondary" type="submit" data-i18n="auth.buyer_create">Create buyer account</button>
@@ -224,7 +225,7 @@
         <div class="support-card">
           <h2 data-i18n="support.title">Need help tuning a rig?</h2>
           <p data-i18n="support.desc">Tech advisors run live chat every day. We answer within 12 minutes.</p>
-          <button class="btn primary" data-i18n="support.chat_btn">Start live chat</button>
+          <button class="btn primary" id="openSupportChat" data-i18n="support.chat_btn">Open support chat</button>
         </div>
         <div class="support-card light">
           <h3 data-i18n="support.newsletter_title">Get the signal update</h3>
@@ -300,6 +301,23 @@
           </label>
           <button class="btn secondary" type="submit" data-i18n="review.submit">Submit review</button>
           <div class="auth-status" id="reviewStatus" data-i18n="review.login_required">Login required to post.</div>
+        </form>
+      </div>
+    </div>
+    <div class="chat-modal" id="chatModal" aria-hidden="true">
+      <div class="chat-content">
+        <div class="chat-header">
+          <div>
+            <h3 data-i18n="chat.title">Support chat</h3>
+            <p id="chatSubtitle" data-i18n="chat.subtitle">Chat with Techstuf support.</p>
+          </div>
+          <button class="btn ghost" id="closeChat" data-i18n="chat.close">Close</button>
+        </div>
+        <div class="chat-status" id="chatStatus" data-i18n="chat.status_idle">Sign in to start chat.</div>
+        <div class="chat-messages" id="chatMessages"></div>
+        <form class="chat-form" id="chatForm">
+          <textarea name="message" rows="3" placeholder="Type your message" required data-i18n-placeholder="chat.message_placeholder"></textarea>
+          <button class="btn secondary" type="submit" data-i18n="chat.send">Send message</button>
         </form>
       </div>
     </div>

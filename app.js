@@ -157,6 +157,8 @@ const state = {
   search: "",
   reviews: {},
   supabaseInfo: { mode: "connecting", count: 0 },
+  supportThreadId: null,
+  supportMessages: [],
 };
 
 const elements = {
@@ -190,6 +192,13 @@ const elements = {
   reviewForm: document.getElementById("reviewForm"),
   reviewStatus: document.getElementById("reviewStatus"),
   closeReview: document.getElementById("closeReview"),
+  supportChatButton: document.getElementById("openSupportChat"),
+  chatModal: document.getElementById("chatModal"),
+  chatMessages: document.getElementById("chatMessages"),
+  chatForm: document.getElementById("chatForm"),
+  chatStatus: document.getElementById("chatStatus"),
+  closeChat: document.getElementById("closeChat"),
+  chatSubtitle: document.getElementById("chatSubtitle"),
 };
 
 let supabaseClient = null;
@@ -290,12 +299,38 @@ async function getUserRole(userId) {
   return data.role;
 }
 
+async function getUserProfile(userId) {
+  const client = getSupabaseClient();
+  if (!client || !userId) return null;
+
+  const { data, error } = await client
+    .from("profiles")
+    .select("full_name, email")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+  return data;
+}
+
+function getStoredName() {
+  try {
+    return localStorage.getItem("techstuf_name") || "";
+  } catch (error) {
+    return "";
+  }
+}
+
 async function refreshAuthStatus() {
   const client = getSupabaseClient();
   if (!client) {
     setStatus(elements.buyerStatus, t("status.auth_missing", "Auth not configured."));
     setStatus(elements.adminStatus, t("status.auth_missing", "Auth not configured."));
     setStatus(elements.ownerStatus, t("status.auth_missing", "Auth not configured."));
+    setChatStatus(t("chat.auth_missing", "Supabase auth not configured."));
+    setChatEnabled(false);
     return;
   }
 
@@ -306,6 +341,8 @@ async function refreshAuthStatus() {
     setStatus(elements.buyerStatus, t("status.not_signed_in", "Not signed in."));
     setStatus(elements.adminStatus, t("status.admin_requires", "Admin access requires approval."));
     setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
+    setChatStatus(t("chat.sign_in_required", "Sign in to start support chat."));
+    setChatEnabled(false);
     return;
   }
 
@@ -316,6 +353,9 @@ async function refreshAuthStatus() {
   if (role === "owner" || (OWNER_EMAIL && user.email.toLowerCase() === OWNER_EMAIL)) {
     setStatus(elements.adminStatus, t("status.owner_logged_in", "Owner logged in."));
     setStatus(elements.ownerStatus, t("status.owner_access_granted", "Owner access granted."));
+    if (elements.chatModal?.classList.contains("show")) {
+      loadSupportMessages();
+    }
     return;
   }
 
@@ -325,6 +365,10 @@ async function refreshAuthStatus() {
   } else {
     setStatus(elements.adminStatus, t("status.admin_access_pending", "Admin access pending owner approval."));
     setStatus(elements.ownerStatus, t("status.owner_only", "Owner access only."));
+  }
+
+  if (elements.chatModal?.classList.contains("show")) {
+    loadSupportMessages();
   }
 }
 
@@ -764,6 +808,208 @@ async function submitReview(formData) {
   openReviewModal(productId);
 }
 
+function setChatStatus(message) {
+  if (!elements.chatStatus) return;
+  elements.chatStatus.textContent = message;
+}
+
+function setChatEnabled(enabled) {
+  if (!elements.chatForm) return;
+  const textarea = elements.chatForm.querySelector("textarea");
+  const button = elements.chatForm.querySelector("button[type=\"submit\"]");
+  if (textarea) textarea.disabled = !enabled;
+  if (button) button.disabled = !enabled;
+}
+
+function renderSupportMessages(messages, currentEmail) {
+  if (!elements.chatMessages) return;
+  if (!messages.length) {
+    elements.chatMessages.innerHTML = `<p class="chat-empty">${t(
+      "chat.empty",
+      "No messages yet. Say hello to start the chat."
+    )}</p>`;
+    return;
+  }
+
+  elements.chatMessages.innerHTML = messages
+    .map((message) => {
+      const isSelf =
+        message.sender_role === "buyer" ||
+        (currentEmail && message.sender_email === currentEmail);
+      const bubbleClass = isSelf ? "chat-bubble self" : "chat-bubble staff";
+      const name = message.sender_name || message.sender_email || t("chat.support", "Support");
+      const timestamp = message.created_at
+        ? new Date(message.created_at).toLocaleString(getLocale())
+        : "";
+      return `
+        <div class="${bubbleClass}">
+          <div class="chat-meta">
+            <strong>${name}</strong>
+            <span>${timestamp}</span>
+          </div>
+          <p>${message.message}</p>
+        </div>
+      `;
+    })
+    .join("");
+  elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+}
+
+async function ensureSupportThread() {
+  const client = getSupabaseClient();
+  if (!client) {
+    setChatStatus(t("chat.auth_missing", "Supabase auth not configured."));
+    return null;
+  }
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  if (!session?.user) {
+    setChatStatus(t("chat.sign_in_required", "Sign in to start support chat."));
+    setChatEnabled(false);
+    return null;
+  }
+
+  const user = session.user;
+  const { data: threadData, error } = await client
+    .from("support_threads")
+    .select("id")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false })
+    .limit(1);
+
+  if (error) {
+    setChatStatus(t("chat.thread_failed", "Unable to load your chat thread."));
+    return null;
+  }
+
+  if (threadData && threadData.length) {
+    state.supportThreadId = threadData[0].id;
+    return state.supportThreadId;
+  }
+
+  const profile = await getUserProfile(user.id);
+  const fullName =
+    profile?.full_name ||
+    user.user_metadata?.full_name ||
+    getStoredName() ||
+    "";
+
+  const payload = {
+    user_id: user.id,
+    user_email: user.email,
+    user_name: fullName || null,
+    status: "open",
+    last_message_at: new Date().toISOString(),
+  };
+
+  const { data: newThread, error: insertError } = await client
+    .from("support_threads")
+    .insert(payload)
+    .select("id")
+    .single();
+
+  if (insertError || !newThread) {
+    setChatStatus(t("chat.thread_failed", "Unable to start a new chat thread."));
+    return null;
+  }
+
+  state.supportThreadId = newThread.id;
+  return state.supportThreadId;
+}
+
+async function loadSupportMessages() {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  const user = session?.user;
+
+  const threadId = await ensureSupportThread();
+  if (!threadId) return;
+
+  const { data: messages, error } = await client
+    .from("support_messages")
+    .select("id, sender_role, sender_name, sender_email, message, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    setChatStatus(t("chat.load_failed", "Could not load messages."));
+    return;
+  }
+
+  state.supportMessages = messages || [];
+  setChatEnabled(true);
+  setChatStatus(t("chat.ready", "Support online. Send a message."));
+  renderSupportMessages(state.supportMessages, user?.email);
+}
+
+async function sendSupportMessage(formData) {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  if (!session?.user) {
+    setChatStatus(t("chat.sign_in_required", "Sign in to start support chat."));
+    setChatEnabled(false);
+    return;
+  }
+
+  const threadId = await ensureSupportThread();
+  if (!threadId) return;
+
+  const message = String(formData.get("message") || "").trim();
+  if (!message) return;
+
+  const profile = await getUserProfile(session.user.id);
+  const senderName =
+    profile?.full_name || session.user.user_metadata?.full_name || getStoredName() || null;
+
+  const payload = {
+    thread_id: threadId,
+    sender_id: session.user.id,
+    sender_role: "buyer",
+    sender_name: senderName,
+    sender_email: session.user.email,
+    message,
+  };
+
+  const { error } = await client.from("support_messages").insert(payload);
+  if (error) {
+    setChatStatus(t("chat.send_failed", "Message failed to send."));
+    return;
+  }
+
+  await client
+    .from("support_threads")
+    .update({ last_message_at: new Date().toISOString(), status: "open" })
+    .eq("id", threadId);
+
+  if (elements.chatForm) {
+    elements.chatForm.reset();
+  }
+  await loadSupportMessages();
+}
+
+function openChatModal() {
+  if (!elements.chatModal) return;
+  elements.chatModal.classList.add("show");
+  elements.chatModal.setAttribute("aria-hidden", "false");
+  setChatStatus(t("chat.status_idle", "Sign in to start chat."));
+  setChatEnabled(false);
+  loadSupportMessages();
+}
+
+function closeChatModal() {
+  if (!elements.chatModal) return;
+  elements.chatModal.classList.remove("show");
+  elements.chatModal.setAttribute("aria-hidden", "true");
+}
+
 function initReveal() {
   const items = document.querySelectorAll("[data-reveal]");
   const observer = new IntersectionObserver(
@@ -912,13 +1158,39 @@ function bindEvents() {
     });
   }
 
+  if (elements.supportChatButton) {
+    elements.supportChatButton.addEventListener("click", openChatModal);
+  }
+
+  if (elements.closeChat) {
+    elements.closeChat.addEventListener("click", closeChatModal);
+  }
+
+  if (elements.chatForm) {
+    elements.chatForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      await sendSupportMessage(new FormData(event.target));
+    });
+  }
+
   if (elements.buyerRegister) {
     elements.buyerRegister.addEventListener("submit", async (event) => {
       event.preventDefault();
       const formData = new FormData(event.target);
+      const fullName = String(formData.get("full_name") || "").trim();
       const email = String(formData.get("email") || "").trim();
       const password = String(formData.get("password") || "");
-      const result = await signUpUser(email, password, { role: "buyer" });
+      if (fullName) {
+        try {
+          localStorage.setItem("techstuf_name", fullName);
+        } catch (error) {
+          // ignore storage failures
+        }
+      }
+      const result = await signUpUser(email, password, {
+        role: "buyer",
+        full_name: fullName || undefined,
+      });
       if (result) {
         showToast(t("toast.buyer_created", "Buyer account created. Check email to confirm."));
         event.target.reset();

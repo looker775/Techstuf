@@ -35,6 +35,12 @@ const elements = {
   salesTop: document.getElementById("salesTop"),
   recentOrders: document.getElementById("recentOrders"),
   salesStatus: document.getElementById("salesStatus"),
+  chatThreads: document.getElementById("chatThreads"),
+  chatMessages: document.getElementById("chatMessages"),
+  chatReplyForm: document.getElementById("chatReplyForm"),
+  chatThreadTitle: document.getElementById("chatThreadTitle"),
+  chatThreadMeta: document.getElementById("chatThreadMeta"),
+  chatStatus: document.getElementById("chatStatus"),
   productForm: document.getElementById("productForm"),
   productStatus: document.getElementById("productStatus"),
   categoryForm: document.getElementById("categoryForm"),
@@ -49,6 +55,9 @@ const elements = {
 };
 
 let supabaseClient = null;
+let currentOwner = null;
+let activeChatThreadId = null;
+let chatThreadsCache = [];
 
 function getSupabaseClient() {
   if (supabaseClient) return supabaseClient;
@@ -187,6 +196,7 @@ async function guardOwnerAccess() {
     return null;
   }
 
+  currentOwner = user;
   setText(elements.ownerGreeting, `Welcome back, ${user.email}.`);
   setText(elements.ownerRoleStatus, "Owner access granted.");
   return user;
@@ -323,6 +333,146 @@ async function loadSalesAnalytics() {
   }
 
   setText(elements.salesStatus, t("analytics.updated", "Sales data updated."));
+}
+
+function renderChatThreads(threads) {
+  if (!elements.chatThreads) return;
+  if (!threads.length) {
+    elements.chatThreads.innerHTML = `<p class="chat-empty">${t(
+      "chat.inbox_hint",
+      "Select a thread to reply."
+    )}</p>`;
+    return;
+  }
+
+  elements.chatThreads.innerHTML = threads
+    .map((thread) => {
+      const name = thread.user_name || thread.user_email || "Customer";
+      const last = thread.last_message_at ? formatDate(thread.last_message_at) : "--";
+      const activeClass = thread.id === activeChatThreadId ? "active" : "";
+      return `
+        <button class="chat-thread ${activeClass}" data-id="${thread.id}">
+          <strong>${name}</strong>
+          <span>${last}</span>
+        </button>
+      `;
+    })
+    .join("");
+}
+
+function renderChatMessages(messages) {
+  if (!elements.chatMessages) return;
+  if (!messages.length) {
+    elements.chatMessages.innerHTML = `<p class="chat-empty">${t(
+      "chat.empty",
+      "No messages yet. Say hello to start the chat."
+    )}</p>`;
+    return;
+  }
+
+  elements.chatMessages.innerHTML = messages
+    .map((message) => {
+      const isStaff = message.sender_role === "owner" || message.sender_role === "admin";
+      const bubbleClass = isStaff ? "chat-bubble staff" : "chat-bubble self";
+      const name = message.sender_name || message.sender_email || t("chat.support", "Support");
+      const timestamp = message.created_at ? formatDate(message.created_at) : "";
+      return `
+        <div class="${bubbleClass}">
+          <div class="chat-meta">
+            <strong>${name}</strong>
+            <span>${timestamp}</span>
+          </div>
+          <p>${message.message}</p>
+        </div>
+      `;
+    })
+    .join("");
+  elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+}
+
+async function loadSupportThreads() {
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from("support_threads")
+    .select("id, user_email, user_name, status, last_message_at")
+    .order("last_message_at", { ascending: false })
+    .limit(50);
+
+  if (error) {
+    setText(elements.chatStatus, t("chat.thread_failed", "Support chat not available."));
+    renderChatThreads([]);
+    return;
+  }
+
+  chatThreadsCache = data || [];
+  renderChatThreads(chatThreadsCache);
+
+  if (!activeChatThreadId && chatThreadsCache.length) {
+    await selectChatThread(chatThreadsCache[0].id);
+  }
+}
+
+async function selectChatThread(threadId) {
+  activeChatThreadId = threadId;
+  const thread = chatThreadsCache.find((item) => item.id === threadId);
+  if (elements.chatThreadTitle) {
+    elements.chatThreadTitle.textContent = thread?.user_name || thread?.user_email || "Customer";
+  }
+  if (elements.chatThreadMeta) {
+    elements.chatThreadMeta.textContent = thread?.user_email || "";
+  }
+  renderChatThreads(chatThreadsCache);
+  await loadChatMessages(threadId);
+}
+
+async function loadChatMessages(threadId) {
+  const client = getSupabaseClient();
+  if (!client || !threadId) return;
+
+  const { data, error } = await client
+    .from("support_messages")
+    .select("id, sender_role, sender_name, sender_email, message, created_at")
+    .eq("thread_id", threadId)
+    .order("created_at", { ascending: true })
+    .limit(200);
+
+  if (error) {
+    setText(elements.chatStatus, t("chat.load_failed", "Could not load messages."));
+    return;
+  }
+
+  renderChatMessages(data || []);
+  setText(elements.chatStatus, t("chat.ready", "Support online. Send a message."));
+}
+
+async function sendChatReply(message) {
+  const client = getSupabaseClient();
+  if (!client || !activeChatThreadId || !currentOwner) return;
+
+  const payload = {
+    thread_id: activeChatThreadId,
+    sender_id: currentOwner.id,
+    sender_role: "owner",
+    sender_name: currentOwner.user_metadata?.full_name || currentOwner.email,
+    sender_email: currentOwner.email,
+    message,
+  };
+
+  const { error } = await client.from("support_messages").insert(payload);
+  if (error) {
+    setText(elements.chatStatus, t("chat.send_failed", "Message failed to send."));
+    return;
+  }
+
+  await client
+    .from("support_threads")
+    .update({ last_message_at: new Date().toISOString(), status: "open" })
+    .eq("id", activeChatThreadId);
+
+  await loadChatMessages(activeChatThreadId);
+  await loadSupportThreads();
 }
 
 async function loadAdminRequests() {
@@ -712,6 +862,7 @@ function bindEvents() {
       refreshCatalogLists();
       loadProductCount();
       loadSalesAnalytics();
+      loadSupportThreads();
     });
   }
 
@@ -764,6 +915,25 @@ function bindEvents() {
       fillSelect(elements.productSubcategorySelect, subs, "Select subcategory (optional)");
     });
   }
+
+  if (elements.chatThreads) {
+    elements.chatThreads.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-id]");
+      if (!button) return;
+      selectChatThread(button.dataset.id);
+    });
+  }
+
+  if (elements.chatReplyForm) {
+    elements.chatReplyForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const formData = new FormData(event.target);
+      const message = String(formData.get("message") || "").trim();
+      if (!message) return;
+      await sendChatReply(message);
+      event.target.reset();
+    });
+  }
 }
 
 async function initDashboard() {
@@ -774,6 +944,7 @@ async function initDashboard() {
   await refreshCatalogLists();
   await loadProductCount();
   await loadSalesAnalytics();
+  await loadSupportThreads();
 }
 
 bindEvents();
