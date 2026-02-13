@@ -32,12 +32,27 @@ function setStatus(element, message) {
 
 async function getUserRole(userId) {
   const client = getSupabaseClient();
-  if (!client || !userId) return { role: null, error: "Auth not configured." };
-
-  const { data, error } = await client.from("profiles").select("role").eq("id", userId).single();
-  if (error || !data) {
-    return { role: null, error: error?.message || "Role lookup failed." };
+  if (!client || !userId) {
+    return { role: null, error: "Auth not configured." };
   }
+
+  const { data, error } = await client
+    .from("profiles")
+    .select("role")
+    .eq("id", userId)
+    .single();
+
+  if (error) {
+    return {
+      role: null,
+      error: `${error.message || "Role lookup failed."} (${error.code || "no_code"})`,
+    };
+  }
+
+  if (!data) {
+    return { role: null, error: "No profile row found for this user." };
+  }
+
   return { role: data.role || null, error: null };
 }
 
@@ -64,9 +79,10 @@ async function refreshAuthStatus() {
   if (roleResult.error) {
     setStatus(
       elements.adminStatus,
-      `Signed in as ${user.email}. Role not found. Run the auth SQL setup.`
+      `Signed in as ${user.email}. Role lookup failed: ${roleResult.error}`
     );
     setStatus(elements.ownerStatus, "Owner access only.");
+    console.error("Role lookup failed", roleResult.error);
     return;
   }
 
