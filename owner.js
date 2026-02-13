@@ -59,6 +59,33 @@ let currentOwner = null;
 let activeChatThreadId = null;
 let chatThreadsCache = [];
 
+function getAuthStorage() {
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("__techstuf", "1");
+      localStorage.removeItem("__techstuf");
+      return localStorage;
+    }
+  } catch (error) {
+    // ignore
+  }
+  try {
+    if (typeof sessionStorage !== "undefined") {
+      sessionStorage.setItem("__techstuf", "1");
+      sessionStorage.removeItem("__techstuf");
+      return sessionStorage;
+    }
+  } catch (error) {
+    // ignore
+  }
+
+  return {
+    getItem: () => null,
+    setItem: () => {},
+    removeItem: () => {},
+  };
+}
+
 function getSupabaseClient() {
   if (supabaseClient) return supabaseClient;
   if (!window.supabase || !SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
@@ -67,6 +94,8 @@ function getSupabaseClient() {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
+      storage: getAuthStorage(),
+      storageKey: "techstuf-auth",
     },
   });
   return supabaseClient;
