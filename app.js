@@ -60,7 +60,7 @@ const PAYPAL_SUPPORTED_CURRENCIES = new Set([
   "USD",
 ]);
 const ZERO_DECIMAL_CURRENCIES = new Set(["HUF", "JPY", "TWD"]);
-const TRANSLATION_CACHE_KEY = "techstuf_translation_cache_v1";
+const TRANSLATION_CACHE_KEY = "techstuf_translation_cache_v2";
 const TRANSLATION_CACHE_TTL = 1000 * 60 * 60 * 24 * 30;
 
 const DEFAULT_PRODUCTS = [
@@ -546,22 +546,16 @@ function splitTextForTranslation(text, maxLen = 450) {
 
 async function translateChunk(text, targetLang) {
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
-      text
-    )}&langpair=en|${encodeURIComponent(targetLang)}`;
-    const response = await fetch(url, { cache: "no-store" });
+    const response = await fetch("/.netlify/functions/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text, targetLang }),
+    });
     if (!response.ok) return null;
     const data = await response.json();
-    const translated = data?.responseData?.translatedText;
+    const translated = data?.translated;
     if (!translated || typeof translated !== "string") return null;
     const lowered = translated.trim().toLowerCase();
-    if (
-      lowered.includes("query length limit") ||
-      lowered.includes("max allowed query") ||
-      lowered.includes("too many requests")
-    ) {
-      return null;
-    }
     if (lowered === text.trim().toLowerCase()) return null;
     return translated.trim();
   } catch (error) {
