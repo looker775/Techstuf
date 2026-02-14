@@ -23,6 +23,15 @@ const getLanguage = () =>
 const BASE_CURRENCY = (PAYPAL_CURRENCY || "USD").toUpperCase();
 const CURRENCY_CACHE_KEY = "techstuf_currency";
 const CURRENCY_CACHE_TTL = 12 * 60 * 60 * 1000;
+const CURRENCY_CACHE_VERSION = 2;
+const GEO_OVERRIDE_KEY = "techstuf_geo_override";
+const GEO_OVERRIDE_TTL = 1000 * 60 * 60 * 24 * 14;
+const GEO_SOURCES = [
+  "/.netlify/functions/ip-geo",
+  "https://ipwho.is/",
+  "https://ipapi.co/json/",
+  "https://geolocation-db.com/json/",
+];
 const PAYPAL_SUPPORTED_CURRENCIES = new Set([
   "AUD",
   "BRL",
@@ -367,16 +376,21 @@ function loadCachedCurrency() {
     const raw = localStorage.getItem(CURRENCY_CACHE_KEY);
     if (!raw) return null;
     const data = JSON.parse(raw);
+    if (!data || data.version !== CURRENCY_CACHE_VERSION) return null;
     if (!data || !data.currency || !data.rate || !data.timestamp) return null;
     if (Date.now() - data.timestamp > CURRENCY_CACHE_TTL) return null;
     if (data.baseCurrency && data.baseCurrency !== BASE_CURRENCY) return null;
+    const override = loadGeoOverrideCountry();
+    if (override) {
+      if (!data.countryCode || data.countryCode !== override) return null;
+    }
     return data;
   } catch (error) {
     return null;
   }
 }
 
-function saveCachedCurrency(currency, rate) {
+function saveCachedCurrency(currency, rate, countryCode) {
   try {
     localStorage.setItem(
       CURRENCY_CACHE_KEY,
@@ -384,6 +398,8 @@ function saveCachedCurrency(currency, rate) {
         currency,
         rate,
         baseCurrency: BASE_CURRENCY,
+        countryCode: countryCode || null,
+        version: CURRENCY_CACHE_VERSION,
         timestamp: Date.now(),
       })
     );
@@ -392,15 +408,58 @@ function saveCachedCurrency(currency, rate) {
   }
 }
 
-async function fetchCountryCode() {
+function loadGeoOverrideCountry() {
   try {
-    const response = await fetch("/.netlify/functions/ip-geo");
-    if (!response.ok) return null;
-    const data = await response.json();
-    return data?.countryCode ? String(data.countryCode).toUpperCase() : null;
+    const raw = localStorage.getItem(GEO_OVERRIDE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data.countryCode || !data.updatedAt) return null;
+    if (Date.now() - data.updatedAt > GEO_OVERRIDE_TTL) return null;
+    const code = String(data.countryCode).trim().toUpperCase();
+    return code.length === 2 ? code : null;
   } catch (error) {
     return null;
   }
+}
+
+function parseCountryCode(data) {
+  if (!data || data?.success === false) return null;
+  const raw =
+    data.country_code ||
+    data.countryCode ||
+    data.country_code_iso2 ||
+    data.country;
+  if (!raw) return null;
+  const code = String(raw).trim().toUpperCase();
+  return code.length === 2 ? code : null;
+}
+
+async function fetchJson(url, timeoutMs = 3500) {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+    const response = await fetch(url, {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    return null;
+  }
+}
+
+async function fetchCountryCode() {
+  const override = loadGeoOverrideCountry();
+  if (override) return override;
+  for (const url of GEO_SOURCES) {
+    const data = await fetchJson(url);
+    const code = parseCountryCode(data);
+    if (code) return code;
+  }
+  return null;
 }
 
 async function fetchCurrencyForCountry(countryCode) {
@@ -459,7 +518,7 @@ async function initCurrency() {
   state.currency = currency;
   state.fxRate = rate || 1;
   state.currencyReady = true;
-  saveCachedCurrency(currency, state.fxRate);
+  saveCachedCurrency(currency, state.fxRate, countryCode);
 }
 
 function getLocalizedProductField(product, field) {
