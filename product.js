@@ -333,10 +333,16 @@ function readCachedTranslation(text, lang) {
   const entry = cache[key];
   if (!entry || !entry.value || !entry.updatedAt) return null;
   if (Date.now() - entry.updatedAt > TRANSLATION_CACHE_TTL) return null;
+  if (isInvalidTranslation(entry.value)) {
+    delete cache[key];
+    saveTranslationCache(cache);
+    return null;
+  }
   return entry.value;
 }
 
 function writeCachedTranslation(text, lang, value) {
+  if (isInvalidTranslation(value)) return;
   const key = `${lang}:${hashString(text)}`;
   const cache = loadTranslationCache();
   cache[key] = { value, updatedAt: Date.now() };
@@ -344,6 +350,16 @@ function writeCachedTranslation(text, lang, value) {
 }
 
 const translationInflight = new Map();
+
+function isInvalidTranslation(value) {
+  if (!value) return false;
+  const lowered = String(value).toLowerCase();
+  return (
+    lowered.includes("query length limit") ||
+    lowered.includes("max allowed query") ||
+    lowered.includes("too many requests")
+  );
+}
 
 async function translateText(text, targetLang) {
   if (!text || typeof text !== "string") return null;
