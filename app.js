@@ -449,20 +449,16 @@ function scheduleProductRender() {
 async function translateText(text, targetLang) {
   if (!text || typeof text !== "string") return null;
   if (targetLang !== "ru") return null;
-  try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
-      text
-    )}&langpair=en|ru`;
-    const response = await fetch(url, { cache: "no-store" });
-    if (!response.ok) return null;
-    const data = await response.json();
-    const translated = data?.responseData?.translatedText;
-    if (!translated || typeof translated !== "string") return null;
-    if (translated.trim().toLowerCase() === text.trim().toLowerCase()) return null;
-    return translated.trim();
-  } catch (error) {
-    return null;
+  const maxLen = 450;
+  const chunks = splitTextForTranslation(text, maxLen);
+  const results = [];
+  for (const chunk of chunks) {
+    const translated = await translateChunk(chunk, targetLang);
+    results.push(translated || chunk);
   }
+  const combined = results.join("\n");
+  if (!combined || combined.trim().toLowerCase() === text.trim().toLowerCase()) return null;
+  return combined.trim();
 }
 
 function requestTranslation(text, targetLang) {
@@ -482,6 +478,79 @@ function requestTranslation(text, targetLang) {
       translationInflight.delete(key);
     });
   return null;
+}
+
+function splitTextForTranslation(text, maxLen = 450) {
+  const normalized = String(text || "").trim();
+  if (!normalized) return [];
+  if (normalized.length <= maxLen) return [normalized];
+
+  const parts = normalized.split(/\n+/);
+  const chunks = [];
+  for (const part of parts) {
+    const sentences = part.split(/(?<=[.!?])\s+/);
+    let current = "";
+    for (const sentence of sentences) {
+      const piece = sentence.trim();
+      if (!piece) continue;
+      if (piece.length > maxLen) {
+        const words = piece.split(/\s+/);
+        let wordChunk = "";
+        for (const word of words) {
+          if (!wordChunk) {
+            wordChunk = word;
+            continue;
+          }
+          if ((wordChunk + " " + word).length > maxLen) {
+            chunks.push(wordChunk);
+            wordChunk = word;
+          } else {
+            wordChunk += ` ${word}`;
+          }
+        }
+        if (wordChunk) chunks.push(wordChunk);
+        current = "";
+        continue;
+      }
+      if (!current) {
+        current = piece;
+        continue;
+      }
+      if ((current + " " + piece).length > maxLen) {
+        chunks.push(current);
+        current = piece;
+      } else {
+        current += ` ${piece}`;
+      }
+    }
+    if (current) chunks.push(current);
+  }
+  return chunks.length ? chunks : [normalized];
+}
+
+async function translateChunk(text, targetLang) {
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+      text
+    )}&langpair=en|${encodeURIComponent(targetLang)}`;
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const translated = data?.responseData?.translatedText;
+    if (!translated || typeof translated !== "string") return null;
+    const lowered = translated.trim().toLowerCase();
+    if (
+      lowered.includes("query length limit") ||
+      lowered.includes("max allowed query") ||
+      lowered.includes("too many requests")
+    ) {
+      return null;
+    }
+    if (lowered === text.trim().toLowerCase()) return null;
+    return translated.trim();
+  } catch (error) {
+    return null;
+  }
 }
 
 function loadCachedCurrency() {
