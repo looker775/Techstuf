@@ -42,7 +42,12 @@ const elements = {
   chatThreadMeta: document.getElementById("chatThreadMeta"),
   chatStatus: document.getElementById("chatStatus"),
   productForm: document.getElementById("productForm"),
+  productFormTitle: document.getElementById("productFormTitle"),
+  productSubmitBtn: document.getElementById("productSubmitBtn"),
+  productCancelBtn: document.getElementById("productCancelBtn"),
   productStatus: document.getElementById("productStatus"),
+  productManageList: document.getElementById("productManageList"),
+  productManageStatus: document.getElementById("productManageStatus"),
   categoryForm: document.getElementById("categoryForm"),
   categoryStatus: document.getElementById("categoryStatus"),
   subcategoryForm: document.getElementById("subcategoryForm"),
@@ -63,6 +68,7 @@ let currentOwner = null;
 let activeChatThreadId = null;
 let chatThreadsCache = [];
 let cachedCategories = [];
+let productCache = new Map();
 
 function getAuthStorage() {
   try {
@@ -123,6 +129,58 @@ function setManageStatus(element, message) {
 
 function escapeAttr(value) {
   return String(value || "").replace(/"/g, "&quot;");
+}
+
+function setProductFormMode(mode, product) {
+  if (!elements.productForm) return;
+  const form = elements.productForm;
+  const isEdit = mode === "edit" && product;
+  form.dataset.editingId = isEdit ? product.id : "";
+  form.dataset.imageUrl = isEdit ? product.image_url || "" : "";
+  form.dataset.videoUrl = isEdit ? product.video_url || "" : "";
+
+  if (elements.productFormTitle) {
+    elements.productFormTitle.textContent = isEdit ? "Edit product" : "Publish product";
+  }
+  if (elements.productSubmitBtn) {
+    elements.productSubmitBtn.textContent = isEdit ? "Save changes" : "Publish product";
+  }
+  if (elements.productCancelBtn) {
+    elements.productCancelBtn.hidden = !isEdit;
+  }
+
+  if (!isEdit) {
+    form.reset();
+    return;
+  }
+
+  form.querySelector('input[name="name"]').value = product.name || "";
+  form.querySelector('input[name="name_ru"]').value = product.name_ru || "";
+  form.querySelector('input[name="price"]').value = product.price ?? "";
+  form.querySelector('input[name="badge"]').value = product.badge || "";
+  form.querySelector('textarea[name="description"]').value = product.description || "";
+  form.querySelector('textarea[name="description_ru"]').value = product.description_ru || "";
+  const activeInput = form.querySelector('input[name="active"]');
+  if (activeInput) {
+    activeInput.checked = product.active !== false;
+  }
+
+  const categoryId = product.category_id || "";
+  const subcategoryId = product.subcategory_id || "";
+
+  if (elements.productCategorySelect) {
+    elements.productCategorySelect.value = categoryId;
+  }
+  if (elements.productSubcategorySelect) {
+    if (categoryId) {
+      loadSubcategories(categoryId).then((subs) => {
+        fillSelect(elements.productSubcategorySelect, subs, "Select subcategory");
+        elements.productSubcategorySelect.value = subcategoryId;
+      });
+    } else {
+      fillSelect(elements.productSubcategorySelect, [], "Select subcategory");
+    }
+  }
 }
 
 function formatDate(value) {
@@ -208,6 +266,80 @@ async function refreshCatalogLists() {
   } else {
     fillSelect(elements.productSubcategorySelect, [], "Select subcategory");
   }
+}
+
+async function loadManageProducts() {
+  if (!elements.productManageList) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from("products")
+    .select(
+      "id, name, name_ru, description, description_ru, price, badge, image_url, video_url, active, category_id, subcategory_id, categories(name), subcategories(name)"
+    )
+    .order("name", { ascending: true });
+
+  if (error) {
+    elements.productManageList.innerHTML = "";
+    setManageStatus(elements.productManageStatus, `Failed: ${error.message}`);
+    return;
+  }
+
+  const products = data || [];
+  productCache = new Map(products.map((item) => [item.id, item]));
+
+  if (!products.length) {
+    elements.productManageList.innerHTML = "<tr><td colspan=\"6\">No products yet.</td></tr>";
+    setManageStatus(elements.productManageStatus, "No products yet.");
+    return;
+  }
+
+  elements.productManageList.innerHTML = products
+    .map((product) => {
+      const categoryName = product.categories?.name || "--";
+      const subcategoryName = product.subcategories?.name || "--";
+      const priceLabel = formatMoney(product.price, PAYPAL_CURRENCY);
+      return `
+        <tr data-id="${product.id}">
+          <td>${escapeAttr(product.name || "")}</td>
+          <td>${priceLabel}</td>
+          <td>${escapeAttr(categoryName)}</td>
+          <td>${escapeAttr(subcategoryName)}</td>
+          <td><input type="checkbox" ${product.active ? "checked" : ""} disabled /></td>
+          <td class="table-actions">
+            <button class="action-btn approve" data-action="edit">Edit</button>
+            <button class="action-btn reject" data-action="delete">Delete</button>
+          </td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  setManageStatus(elements.productManageStatus, "Loaded.");
+}
+
+function startProductEdit(productId) {
+  const product = productCache.get(productId);
+  if (!product) return;
+  setProductFormMode("edit", product);
+  if (elements.productForm) {
+    elements.productForm.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+async function deleteProductRow(productId) {
+  if (!productId) return;
+  if (!confirm("Delete this product?")) return;
+  const client = getSupabaseClient();
+  if (!client) return;
+  const { error } = await client.from("products").delete().eq("id", productId);
+  if (error) {
+    setManageStatus(elements.productManageStatus, `Failed: ${error.message}`);
+    return;
+  }
+  setManageStatus(elements.productManageStatus, "Product deleted.");
+  await loadManageProducts();
 }
 
 async function getUserRole(userId) {
@@ -682,6 +814,7 @@ async function uploadMedia(file, folder) {
 
 async function handleProductSubmit(event) {
   event.preventDefault();
+  const editingId = elements.productForm?.dataset.editingId || "";
   const formData = new FormData(event.target);
   const name = String(formData.get("name") || "").trim();
   const nameRu = String(formData.get("name_ru") || "").trim();
@@ -691,6 +824,7 @@ async function handleProductSubmit(event) {
   const descriptionRu = String(formData.get("description_ru") || "").trim();
   const imageFile = formData.get("image_file");
   const videoFile = formData.get("video_file");
+  const active = formData.get("active") ? true : false;
   const categoryText = String(formData.get("category_text") || "").trim();
   const categoryId = String(formData.get("category_id") || "");
   const subcategoryId = String(formData.get("subcategory_id") || "");
@@ -714,8 +848,8 @@ async function handleProductSubmit(event) {
     return;
   }
 
-  let imageUrl = null;
-  let videoUrl = null;
+  let imageUrl = elements.productForm?.dataset.imageUrl || null;
+  let videoUrl = elements.productForm?.dataset.videoUrl || null;
 
   try {
     if (imageFile && imageFile.size) {
@@ -736,25 +870,32 @@ async function handleProductSubmit(event) {
     badge,
     description,
     description_ru: descriptionRu || null,
-    image_url: imageUrl,
-    video_url: videoUrl,
+    image_url: imageUrl || null,
+    video_url: videoUrl || null,
     category: resolvedCategoryText || undefined,
     category_id: categoryId || null,
     subcategory_id: subcategoryId || null,
-    active: true,
+    active,
   };
 
   const client = getSupabaseClient();
   if (!client) return;
 
-  const { error } = await client.from("products").insert(payload);
+  const { error } = editingId
+    ? await client.from("products").update(payload).eq("id", editingId)
+    : await client.from("products").insert(payload);
   if (error) {
-    setText(elements.productStatus, `Publish failed: ${error.message}`);
+    setText(elements.productStatus, `${editingId ? "Update" : "Publish"} failed: ${error.message}`);
     return;
   }
 
-  setText(elements.productStatus, "Product published successfully.");
-  event.target.reset();
+  setText(
+    elements.productStatus,
+    editingId ? "Product updated successfully." : "Product published successfully."
+  );
+  setProductFormMode("create");
+  await loadManageProducts();
+  await loadProductCount();
 }
 
 async function handleCategorySubmit(event) {
@@ -1118,6 +1259,7 @@ function bindEvents() {
       loadProductCount();
       loadSalesAnalytics();
       loadSupportThreads();
+      loadManageProducts();
     });
   }
 
@@ -1150,6 +1292,13 @@ function bindEvents() {
 
   if (elements.productForm) {
     elements.productForm.addEventListener("submit", handleProductSubmit);
+  }
+
+  if (elements.productCancelBtn) {
+    elements.productCancelBtn.addEventListener("click", () => {
+      setProductFormMode("create");
+      setText(elements.productStatus, "Awaiting input.");
+    });
   }
 
   if (elements.categoryForm) {
@@ -1203,6 +1352,23 @@ function bindEvents() {
     });
   }
 
+  if (elements.productManageList) {
+    elements.productManageList.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-action]");
+      if (!button) return;
+      const row = button.closest("tr");
+      if (!row) return;
+      const productId = row.dataset.id;
+      const action = button.dataset.action;
+      if (action === "edit") {
+        startProductEdit(productId);
+      }
+      if (action === "delete") {
+        deleteProductRow(productId);
+      }
+    });
+  }
+
   if (elements.chatThreads) {
     elements.chatThreads.addEventListener("click", (event) => {
       const button = event.target.closest("button[data-id]");
@@ -1234,6 +1400,8 @@ async function initDashboard() {
   await loadSupportThreads();
   await loadManageCategories();
   await loadManageSubcategories();
+  await loadManageProducts();
+  setProductFormMode("create");
 }
 
 bindEvents();

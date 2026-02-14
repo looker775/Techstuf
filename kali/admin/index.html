@@ -14,7 +14,7 @@
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="../../config.js?v=20260213g"></script>
     <script defer src="../../i18n.js?v=20260213n"></script>
-    <script defer src="../../admin.js?v=20260214b"></script>
+    <script defer src="../../admin.js?v=20260214c"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -151,7 +151,7 @@
 
         <div class="dashboard-panel">
           <div class="panel-header">
-            <h3>Publish product</h3>
+            <h3 id="productFormTitle">Publish product</h3>
             <p>Create a new product listing.</p>
           </div>
           <form class="form-grid" id="productForm">
@@ -167,11 +167,39 @@
             <select name="subcategory_id" id="productSubcategorySelect" required>
               <option value="">Select subcategory</option>
             </select>
+            <label>
+              <input type="checkbox" name="active" checked />
+              <span>Active</span>
+            </label>
             <textarea name="description" rows="3" placeholder="Description"></textarea>
             <textarea name="description_ru" rows="3" placeholder="Description (RU)"></textarea>
-            <button class="btn secondary" type="submit">Publish product</button>
+            <button class="btn secondary" type="submit" id="productSubmitBtn">Publish product</button>
+            <button class="btn ghost" type="button" id="productCancelBtn" hidden>Cancel edit</button>
             <div class="auth-status" id="productStatus">Awaiting input.</div>
           </form>
+        </div>
+
+        <div class="dashboard-panel">
+          <div class="panel-header">
+            <h3>Manage products</h3>
+            <p>Edit or remove products.</p>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Price</th>
+                  <th>Category</th>
+                  <th>Subcategory</th>
+                  <th>Active</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="productManageList"></tbody>
+            </table>
+          </div>
+          <div class="auth-status" id="productManageStatus">Awaiting input.</div>
         </div>
 
         <div class="dashboard-panel">
