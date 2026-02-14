@@ -290,6 +290,14 @@ function formatMoney(value, currency = PAYPAL_CURRENCY) {
   }
 }
 
+function formatExcerpt(text, maxLength = 140) {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  if (!normalized) return "";
+  if (normalized.length <= maxLength) return normalized;
+  const truncated = normalized.slice(0, maxLength);
+  return `${truncated.replace(/\s+\S*$/, "")}…`;
+}
+
 function renderStars(rating) {
   const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
   const filled = "&#9733;".repeat(Math.round(safeRating));
@@ -546,13 +554,14 @@ function renderProducts() {
         reviewAverage === null
           ? t("rating.none", "No ratings yet")
           : `${renderStars(reviewAverage)} ${reviewAverage.toFixed(1)}`;
+      const descriptionPreview = formatExcerpt(product.description, 140);
       const productHref = `product.html?id=${encodeURIComponent(product.id)}`;
       return `
         <article class="product-card" data-id="${product.id}">
           <div class="${artClass}" style="${artStyle}">${displayCategory}</div>
           <div class="product-info">
             <h3><a class="product-link" href="${productHref}">${product.name}</a></h3>
-            <p>${product.description}</p>
+            <p>${descriptionPreview}</p>
           </div>
           <div class="product-meta">
             <span class="badge">${product.badge}</span>

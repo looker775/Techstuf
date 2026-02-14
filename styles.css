@@ -459,6 +459,14 @@ main,
   margin-bottom: 0.3rem;
 }
 
+.product-info p {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 3.6em;
+}
+
 .product-meta {
   display: flex;
   justify-content: space-between;
