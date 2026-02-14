@@ -412,6 +412,23 @@ function addToCart(product) {
   showToast(t("toast.added", "Added to cart"));
 }
 
+function initReveal() {
+  const items = document.querySelectorAll("[data-reveal]");
+  if (!items.length) return;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    },
+    { threshold: 0.2 }
+  );
+  items.forEach((item) => observer.observe(item));
+}
+
 async function init() {
   const productId = getProductId();
   if (!productId) {
@@ -430,6 +447,8 @@ async function init() {
   if (elements.addToCartBtn && currentProduct) {
     elements.addToCartBtn.addEventListener("click", () => addToCart(currentProduct));
   }
+
+  initReveal();
 }
 
 window.addEventListener("techstuf:languagechange", () => {
