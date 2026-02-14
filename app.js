@@ -17,6 +17,8 @@ const t =
       };
 const getLocale = () =>
   I18N && typeof I18N.getLocale === "function" ? I18N.getLocale() : "en-US";
+const getLanguage = () =>
+  I18N && typeof I18N.getLanguage === "function" ? I18N.getLanguage() : "en";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -298,6 +300,18 @@ function formatExcerpt(text, maxLength = 140) {
   return `${truncated.replace(/\s+\S*$/, "")}…`;
 }
 
+function getLocalizedProductField(product, field) {
+  if (!product) return "";
+  const lang = getLanguage();
+  if (lang === "ru") {
+    const ruValue = product[`${field}_ru`];
+    if (ruValue && String(ruValue).trim()) {
+      return ruValue;
+    }
+  }
+  return product[field] || "";
+}
+
 function renderStars(rating) {
   const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
   const filled = "&#9733;".repeat(Math.round(safeRating));
@@ -341,7 +355,9 @@ function updateCartCount() {
 function getCartItems() {
   return Object.values(state.cart).map((item) => ({
     id: item.product.id,
-    name: item.product.name,
+    name:
+      getLocalizedProductField(item.product, "name") ||
+      item.product.name,
     price: Number(item.product.price),
     qty: item.qty,
   }));
@@ -554,14 +570,17 @@ function renderProducts() {
         reviewAverage === null
           ? t("rating.none", "No ratings yet")
           : `${renderStars(reviewAverage)} ${reviewAverage.toFixed(1)}`;
-      const descriptionPreview = formatExcerpt(product.description, 140);
+      const displayName = getLocalizedProductField(product, "name") ||
+        product.name ||
+        t("product.unnamed", "Unnamed product");
+      const displayDescription = getLocalizedProductField(product, "description") || product.description || "";
       const productHref = `product.html?id=${encodeURIComponent(product.id)}`;
       return `
         <article class="product-card" data-id="${product.id}">
           <div class="${artClass}" style="${artStyle}">${displayCategory}</div>
           <div class="product-info">
-            <h3><a class="product-link" href="${productHref}">${product.name}</a></h3>
-            <p>${descriptionPreview}</p>
+            <h3><a class="product-link" href="${productHref}">${displayName}</a></h3>
+            <p>${formatExcerpt(displayDescription, 140)}</p>
           </div>
           <div class="product-meta">
             <span class="badge">${product.badge}</span>
@@ -643,10 +662,18 @@ function applyFilters() {
     if (state.activeSubcategoryId !== "all") {
       matchSubcategory = product.subcategory_id === state.activeSubcategoryId;
     }
-    const matchSearch =
-      product.name.toLowerCase().includes(query) ||
-      product.description.toLowerCase().includes(query) ||
-      (product.categoryName || product.category || "").toLowerCase().includes(query);
+    const searchTarget = [
+      product.name,
+      product.name_ru,
+      product.description,
+      product.description_ru,
+      product.categoryName,
+      product.category,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    const matchSearch = searchTarget.includes(query);
     return matchCategory && matchSubcategory && matchSearch;
   });
   renderProducts();
@@ -699,7 +726,7 @@ function renderCart() {
         <div class="cart-item">
           <div class="thumb"></div>
           <div>
-            <h4>${item.product.name}</h4>
+            <h4>${getLocalizedProductField(item.product, "name") || item.product.name}</h4>
             <span>${formatPrice(item.product.price)} | ${t("cart.qty", "Qty")} ${item.qty}</span>
           </div>
           <button data-remove="${item.product.id}">${t("cart.remove", "Remove")}</button>
@@ -900,8 +927,9 @@ function openReviewModal(productId) {
       ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
       : product.rating;
 
+  const reviewName = getLocalizedProductField(product, "name") || product.name;
   elements.reviewTitle.textContent = t("review.title_with_product", "{{name}} reviews", {
-    name: product.name,
+    name: reviewName,
   });
   elements.reviewMeta.textContent = t("review.count", "{{count}} review(s)", { count: reviews.length });
   const averageLabel =
@@ -1308,7 +1336,7 @@ function renderBundle(bundle) {
   const items = ids
     .map((id) => state.products.find((product) => product.id === id))
     .filter(Boolean)
-    .map((product) => `&bull; ${product.name}`)
+    .map((product) => `&bull; ${getLocalizedProductField(product, "name") || product.name}`)
     .join("<br />");
   const kitLabel = t("bundles.kit", "{{bundle}} kit", { bundle });
   elements.bundleSummary.innerHTML = `<strong>${kitLabel}</strong><br />${items}`;
@@ -1384,6 +1412,7 @@ async function loadSupabaseProducts() {
     .map((item, index) => ({
       id: item.id || item.sku || `sb-${index}`,
       name: item.name || t("product.unnamed", "Unnamed product"),
+      name_ru: item.name_ru || "",
       category_id: item.category_id || categoryNameToId[item.category] || null,
       subcategory_id: item.subcategory_id || null,
       category: item.category || t("product.default_category", "Gear"),
@@ -1398,6 +1427,7 @@ async function loadSupabaseProducts() {
       rating: Number(item.rating) || 4.5,
       badge: item.badge || t("product.default_badge", "Live"),
       description: item.description || t("product.default_desc", "Supabase item"),
+      description_ru: item.description_ru || "",
       hue: Number(item.image_hue) || (140 + index * 24) % 360,
       image_url: item.image_url || "",
       video_url: item.video_url || "",

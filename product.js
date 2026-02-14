@@ -15,6 +15,8 @@ const t =
       };
 const getLocale = () =>
   I18N && typeof I18N.getLocale === "function" ? I18N.getLocale() : "en-US";
+const getLanguage = () =>
+  I18N && typeof I18N.getLanguage === "function" ? I18N.getLanguage() : "en";
 
 const DEFAULT_PRODUCTS = [
   {
@@ -244,6 +246,18 @@ function renderStars(rating) {
   return `<span class="review-stars">${filled}${empty}</span>`;
 }
 
+function getLocalizedProductField(product, field) {
+  if (!product) return "";
+  const lang = getLanguage();
+  if (lang === "ru") {
+    const ruValue = product[`${field}_ru`];
+    if (ruValue && String(ruValue).trim()) {
+      return ruValue;
+    }
+  }
+  return product[field] || "";
+}
+
 function loadCart() {
   try {
     const stored = localStorage.getItem("techstuf_cart");
@@ -296,6 +310,7 @@ function mapSupabaseProduct(item, index, categoryMap, subcategoryMap) {
   return {
     id: item.id || item.sku || `sb-${index}`,
     name: item.name || t("product.unnamed", "Unnamed product"),
+    name_ru: item.name_ru || "",
     category: item.category || t("product.default_category", "Gear"),
     categoryName: categoryName || item.category || t("product.default_category", "Gear"),
     subcategoryName,
@@ -303,6 +318,7 @@ function mapSupabaseProduct(item, index, categoryMap, subcategoryMap) {
     rating: Number(item.rating) || 0,
     badge: item.badge || t("product.default_badge", "Live"),
     description: item.description || t("product.default_desc", "Supabase item"),
+    description_ru: item.description_ru || "",
     hue,
     image_url: item.image_url || "",
     video_url: item.video_url || "",
@@ -344,8 +360,9 @@ function renderReviews(product, reviews) {
       ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
       : null;
 
+  const reviewName = getLocalizedProductField(product, "name") || product.name;
   elements.productReviewTitle.textContent = t("review.title_with_product", "{{name}} reviews", {
-    name: product.name,
+    name: reviewName,
   });
   elements.productReviewMeta.textContent = t("review.count", "{{count}} review(s)", { count: reviews.length });
   elements.productReviewRating.innerHTML =
@@ -478,9 +495,11 @@ function renderProduct(product, reviews) {
   if (reviewSection) reviewSection.hidden = false;
 
   setProductImage(product);
+  const displayName = getLocalizedProductField(product, "name") || product.name || t("product.unnamed", "Unnamed product");
+  const displayDescription = getLocalizedProductField(product, "description") || product.description || "";
   setText(elements.productCategory, product.categoryName || product.category || "");
-  setText(elements.productName, product.name || t("product.unnamed", "Unnamed product"));
-  setText(elements.productDescription, product.description || "");
+  setText(elements.productName, displayName);
+  setText(elements.productDescription, displayDescription);
   setText(elements.productPrice, formatMoney(product.price || 0));
   setText(elements.productSku, `ID: ${product.id}`);
 

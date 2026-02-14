@@ -14,11 +14,13 @@ Supabase config is now stored in `config.js`. Update:
 Suggested `products` table columns:
 - `id` (uuid or text)
 - `name` (text)
+- `name_ru` (text, optional)
 - `category` (text)
 - `price` (numeric)
 - `rating` (numeric)
 - `badge` (text)
 - `description` (text)
+- `description_ru` (text, optional)
 - `image_url` (text)
 - `video_url` (text)
 - `image_hue` (numeric)
@@ -195,9 +197,11 @@ create table if not exists public.subcategories (
 );
 
 alter table public.products
+  add column if not exists name_ru text,
   add column if not exists category_id uuid references public.categories(id),
   add column if not exists subcategory_id uuid references public.subcategories(id),
   add column if not exists published_by uuid references auth.users(id),
+  add column if not exists description_ru text,
   add column if not exists image_url text,
   add column if not exists video_url text;
 

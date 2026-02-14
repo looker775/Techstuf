@@ -566,9 +566,11 @@ async function handleProductSubmit(event) {
 
   const formData = new FormData(event.target);
   const name = String(formData.get("name") || "").trim();
+  const nameRu = String(formData.get("name_ru") || "").trim();
   const price = Number(formData.get("price") || 0);
   const badge = String(formData.get("badge") || "").trim();
   const description = String(formData.get("description") || "").trim();
+  const descriptionRu = String(formData.get("description_ru") || "").trim();
   const imageFile = formData.get("image_file");
   const videoFile = formData.get("video_file");
   const categoryText = String(formData.get("category_text") || "").trim();
@@ -611,9 +613,11 @@ async function handleProductSubmit(event) {
 
   const payload = {
     name,
+    name_ru: nameRu || null,
     price,
     badge,
     description,
+    description_ru: descriptionRu || null,
     image_url: imageUrl,
     video_url: videoUrl,
     category: resolvedCategoryText || undefined,
