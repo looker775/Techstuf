@@ -307,6 +307,11 @@
         default_category: "Gear",
         default_badge: "Live",
         default_desc: "Supabase item",
+        back_to_store: "Back to store",
+        view_video: "View video",
+        added_to_cart: "Added to cart. Return to store to checkout.",
+        not_found_title: "Product not found",
+        not_found_desc: "This item isn't available. Return to the storefront.",
       },
       rating: {
         none: "No ratings yet",
@@ -599,6 +604,11 @@
         default_category: "Техника",
         default_badge: "В наличии",
         default_desc: "Товар из Supabase",
+        back_to_store: "Вернуться в магазин",
+        view_video: "Смотреть видео",
+        added_to_cart: "Товар добавлен. Вернитесь в магазин для оплаты.",
+        not_found_title: "Товар не найден",
+        not_found_desc: "Этот товар недоступен. Вернитесь в магазин.",
       },
       rating: {
         none: "Оценок пока нет",

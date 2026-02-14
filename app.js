@@ -535,21 +535,23 @@ function renderProducts() {
         reviews.length > 0
           ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
           : null;
+      const hue = Number(product.hue) || 160;
       const safeImage = product.image_url ? product.image_url.replace(/'/g, "\\'") : "";
       const artClass = product.image_url ? "product-art has-image" : "product-art";
       const artStyle = product.image_url
-        ? `background-image: url('${safeImage}');`
-        : `--hue: ${product.hue}`;
+        ? `--hue: ${hue}; background-image: url('${safeImage}'), radial-gradient(circle at top left, rgba(255, 255, 255, 0.7), transparent 40%), linear-gradient(135deg, hsl(${hue} 70% 65%), hsl(${hue} 70% 45%));`
+        : `--hue: ${hue}`;
       const displayCategory = product.categoryName || product.category || t("product.default_category", "Gear");
       const ratingLabel =
         reviewAverage === null
           ? t("rating.none", "No ratings yet")
           : `${renderStars(reviewAverage)} ${reviewAverage.toFixed(1)}`;
+      const productHref = `product.html?id=${encodeURIComponent(product.id)}`;
       return `
         <article class="product-card" data-id="${product.id}">
           <div class="${artClass}" style="${artStyle}">${displayCategory}</div>
           <div class="product-info">
-            <h3>${product.name}</h3>
+            <h3><a class="product-link" href="${productHref}">${product.name}</a></h3>
             <p>${product.description}</p>
           </div>
           <div class="product-meta">
