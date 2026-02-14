@@ -578,12 +578,14 @@ main,
   grid-column: 1 / -1;
   display: grid;
   gap: 0.6rem;
+  width: 100%;
 }
 
 .product-description {
   white-space: pre-wrap;
   max-width: none;
   line-height: 1.6;
+  width: 100%;
 }
 
 .product-detail-meta {
