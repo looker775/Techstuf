@@ -1615,6 +1615,14 @@ async function init() {
   renderProducts();
   renderBundle(state.activeBundle);
   renderCart();
+  try {
+    if (localStorage.getItem("techstuf_open_cart") === "1") {
+      localStorage.removeItem("techstuf_open_cart");
+      openCart();
+    }
+  } catch {
+    // ignore
+  }
   bindEvents();
   loadPayPalSdk();
   initAuth();

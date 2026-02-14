@@ -13,8 +13,8 @@
     <link rel="stylesheet" href="styles.css" />
     <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script defer src="config.js?v=20260213b"></script>
-    <script defer src="i18n.js?v=20260214a"></script>
-    <script defer src="product.js?v=20260214d"></script>
+    <script defer src="i18n.js?v=20260214b"></script>
+    <script defer src="product.js?v=20260214f"></script>
   </head>
   <body>
     <div class="page-glow"></div>
@@ -53,21 +53,34 @@
         <div class="product-media" id="productMedia" style="--hue: 160;">
           <div class="product-media-placeholder" id="productMediaPlaceholder">Techstuf</div>
         </div>
-        <div class="product-detail-info">
+        <aside class="product-side">
           <p class="eyebrow" id="productCategory">Category</p>
           <h1 id="productName">Loading...</h1>
-          <p class="lede product-description" id="productDescription"></p>
           <div class="product-detail-meta">
             <strong id="productPrice">--</strong>
             <span class="rating" id="productRating"></span>
           </div>
+          <label class="product-qty">
+            <span data-i18n="product.quantity">Quantity</span>
+            <input type="number" id="productQty" min="1" value="1" />
+          </label>
           <div class="product-actions">
-            <button class="btn primary" id="addToCartBtn" data-i18n="product.add_to_cart">Add to cart</button>
+            <button class="btn primary" id="buyNowBtn" data-i18n="product.buy_now">Buy now</button>
+            <button class="btn secondary" id="addToCartBtn" data-i18n="product.add_to_cart">Add to cart</button>
+            <button class="btn ghost" id="scrollReviewsBtn" data-i18n="product.comments">Comments</button>
             <a class="btn ghost" id="viewVideoBtn" href="#" target="_blank" rel="noreferrer" data-i18n="product.view_video" hidden>View video</a>
             <a class="btn ghost" href="index.html" data-i18n="product.back_to_store">Back to store</a>
           </div>
+          <div class="product-auth-actions">
+            <a class="btn ghost" href="index.html#account" data-i18n="product.register">Register</a>
+            <a class="btn ghost" href="index.html#account" data-i18n="product.login">Login</a>
+          </div>
           <p class="product-status" id="productStatus"></p>
           <p class="product-status" id="productSku"></p>
+        </aside>
+        <div class="product-description-block">
+          <h2 data-i18n="product.about_title">About this product</h2>
+          <p class="lede product-description" id="productDescription"></p>
         </div>
       </section>
 

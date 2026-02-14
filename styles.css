@@ -492,7 +492,7 @@ main,
 .product-detail {
   padding: 2rem 8vw 2rem;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 4fr) minmax(0, 1fr);
   gap: 1.8rem;
   align-items: start;
 }
@@ -515,6 +515,12 @@ main,
   display: block;
 }
 
+.product-media-link {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .product-media-placeholder {
   position: absolute;
   inset: 0;
@@ -525,9 +531,52 @@ main,
   font-family: "Space Grotesk", sans-serif;
 }
 
+.product-side {
+  display: grid;
+  gap: 1rem;
+}
+
+.product-qty {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.product-qty input {
+  border-radius: 12px;
+  border: 1px solid rgba(12, 18, 21, 0.12);
+  padding: 0.5rem 0.7rem;
+  font-family: inherit;
+}
+
+.product-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.product-actions .btn {
+  width: 100%;
+}
+
+.product-auth-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.product-auth-actions .btn {
+  width: 100%;
+}
+
 .product-detail-info {
   display: grid;
   gap: 1rem;
+}
+
+.product-description-block {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.6rem;
 }
 
 .product-description {
@@ -569,6 +618,12 @@ main,
 
 .review-item p {
   white-space: pre-wrap;
+}
+
+@media (max-width: 980px) {
+  .product-detail {
+    grid-template-columns: 1fr;
+  }
 }
 
 .product-card button {

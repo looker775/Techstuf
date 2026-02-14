@@ -151,6 +151,9 @@ const elements = {
   productRating: document.getElementById("productRating"),
   viewVideoBtn: document.getElementById("viewVideoBtn"),
   addToCartBtn: document.getElementById("addToCartBtn"),
+  buyNowBtn: document.getElementById("buyNowBtn"),
+  scrollReviewsBtn: document.getElementById("scrollReviewsBtn"),
+  productQty: document.getElementById("productQty"),
   productStatus: document.getElementById("productStatus"),
   productSku: document.getElementById("productSku"),
   productReviewTitle: document.getElementById("productReviewTitle"),
@@ -444,8 +447,14 @@ function setProductImage(product) {
     if (elements.productMediaPlaceholder) {
       elements.productMediaPlaceholder.hidden = true;
     }
+    const link = document.createElement("a");
+    link.href = product.image_url;
+    link.target = "_blank";
+    link.rel = "noreferrer";
+    link.className = "product-media-link";
+    link.appendChild(img);
     elements.productMedia.innerHTML = "";
-    elements.productMedia.appendChild(img);
+    elements.productMedia.appendChild(link);
   });
   img.addEventListener("error", () => {
     if (elements.productMediaPlaceholder) {
@@ -500,11 +509,12 @@ function renderProduct(product, reviews) {
 }
 
 function addToCart(product) {
+  const qty = Math.max(1, Number(elements.productQty?.value) || 1);
   const cart = loadCart();
   const existing = cart[product.id];
   cart[product.id] = {
     product,
-    qty: existing ? existing.qty + 1 : 1,
+    qty: existing ? existing.qty + qty : qty,
   };
   saveCart(cart);
   setText(
@@ -512,6 +522,16 @@ function addToCart(product) {
     t("product.added_to_cart", "Added to cart. Return to store to checkout.")
   );
   showToast(t("toast.added", "Added to cart"));
+}
+
+function buyNow(product) {
+  addToCart(product);
+  try {
+    localStorage.setItem("techstuf_open_cart", "1");
+  } catch {
+    // ignore
+  }
+  window.location.href = "index.html#cart";
 }
 
 function initReveal() {
@@ -548,6 +568,19 @@ async function init() {
 
   if (elements.addToCartBtn && currentProduct) {
     elements.addToCartBtn.addEventListener("click", () => addToCart(currentProduct));
+  }
+
+  if (elements.buyNowBtn && currentProduct) {
+    elements.buyNowBtn.addEventListener("click", () => buyNow(currentProduct));
+  }
+
+  if (elements.scrollReviewsBtn) {
+    elements.scrollReviewsBtn.addEventListener("click", () => {
+      const target = document.getElementById("productReviews");
+      if (target) {
+        target.scrollIntoView({ behavior: "smooth" });
+      }
+    });
   }
 
   if (elements.productReviewForm) {
