@@ -18,6 +18,37 @@ const getLocale = () =>
 const getLanguage = () =>
   I18N && typeof I18N.getLanguage === "function" ? I18N.getLanguage() : "en";
 
+const BASE_CURRENCY = (PAYPAL_CURRENCY || "USD").toUpperCase();
+const CURRENCY_CACHE_KEY = "techstuf_currency";
+const CURRENCY_CACHE_TTL = 12 * 60 * 60 * 1000;
+const PAYPAL_SUPPORTED_CURRENCIES = new Set([
+  "AUD",
+  "BRL",
+  "CAD",
+  "CZK",
+  "DKK",
+  "EUR",
+  "HKD",
+  "HUF",
+  "ILS",
+  "JPY",
+  "MYR",
+  "MXN",
+  "TWD",
+  "NZD",
+  "NOK",
+  "PHP",
+  "PLN",
+  "GBP",
+  "RUB",
+  "SGD",
+  "SEK",
+  "CHF",
+  "THB",
+  "USD",
+]);
+const ZERO_DECIMAL_CURRENCIES = new Set(["HUF", "JPY", "TWD"]);
+
 const DEFAULT_PRODUCTS = [
   {
     id: "ts-001",
@@ -170,6 +201,8 @@ const elements = {
 let supabaseClient = null;
 let currentProduct = null;
 let currentReviews = [];
+let currentCurrency = BASE_CURRENCY;
+let currentRate = 1;
 
 function getAuthStorage() {
   try {
@@ -225,18 +258,143 @@ function showToast(message) {
   setTimeout(() => elements.toast.classList.remove("show"), 2200);
 }
 
-function formatMoney(value, currency = PAYPAL_CURRENCY) {
-  const safeCurrency = (currency || PAYPAL_CURRENCY || "USD").toUpperCase();
+function getCurrencyDigits(currency) {
+  return ZERO_DECIMAL_CURRENCIES.has(currency) ? 0 : 2;
+}
+
+function formatMoney(value, currency = BASE_CURRENCY) {
+  const safeCurrency = (currency || BASE_CURRENCY || "USD").toUpperCase();
   const amount = Number(value) || 0;
   try {
     return new Intl.NumberFormat(getLocale(), {
       style: "currency",
       currency: safeCurrency,
-      maximumFractionDigits: 2,
+      maximumFractionDigits: getCurrencyDigits(safeCurrency),
     }).format(amount);
   } catch (error) {
     return `${amount.toFixed(2)} ${safeCurrency}`;
   }
+}
+
+function roundAmount(amount, currency) {
+  if (!Number.isFinite(amount)) return amount;
+  if (ZERO_DECIMAL_CURRENCIES.has(currency)) return Math.round(amount);
+  return Math.round(amount * 100) / 100;
+}
+
+function convertAmount(amount) {
+  const base = Number(amount) || 0;
+  return roundAmount(base * (Number(currentRate) || 1), currentCurrency);
+}
+
+function formatPrice(value) {
+  return formatMoney(convertAmount(value), currentCurrency);
+}
+
+function normalizeCurrency(code, fallback = BASE_CURRENCY) {
+  const normalized = typeof code === "string" ? code.trim().toUpperCase() : "";
+  if (normalized && PAYPAL_SUPPORTED_CURRENCIES.has(normalized)) return normalized;
+  const fallbackNormalized = typeof fallback === "string" ? fallback.trim().toUpperCase() : "";
+  if (fallbackNormalized && PAYPAL_SUPPORTED_CURRENCIES.has(fallbackNormalized)) return fallbackNormalized;
+  return BASE_CURRENCY;
+}
+
+function loadCachedCurrency() {
+  try {
+    const raw = localStorage.getItem(CURRENCY_CACHE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (!data || !data.currency || !data.rate || !data.timestamp) return null;
+    if (Date.now() - data.timestamp > CURRENCY_CACHE_TTL) return null;
+    if (data.baseCurrency && data.baseCurrency !== BASE_CURRENCY) return null;
+    return data;
+  } catch (error) {
+    return null;
+  }
+}
+
+function saveCachedCurrency(currency, rate) {
+  try {
+    localStorage.setItem(
+      CURRENCY_CACHE_KEY,
+      JSON.stringify({
+        currency,
+        rate,
+        baseCurrency: BASE_CURRENCY,
+        timestamp: Date.now(),
+      })
+    );
+  } catch (error) {
+    // ignore
+  }
+}
+
+async function fetchCountryCode() {
+  try {
+    const response = await fetch("/.netlify/functions/ip-geo");
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data?.countryCode ? String(data.countryCode).toUpperCase() : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function fetchCurrencyForCountry(countryCode) {
+  if (!countryCode) return null;
+  try {
+    const response = await fetch(
+      `https://restcountries.com/v3.1/alpha/${countryCode}?fields=currencies`,
+      { cache: "no-store" }
+    );
+    if (!response.ok) return null;
+    const data = await response.json();
+    const entry = Array.isArray(data) ? data[0] : data;
+    const currencies = entry?.currencies;
+    if (!currencies || typeof currencies !== "object") return null;
+    const codes = Object.keys(currencies);
+    return codes[0] || null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function fetchExchangeRate(baseCurrency, targetCurrency) {
+  if (baseCurrency === targetCurrency) return 1;
+  try {
+    const response = await fetch(`https://open.er-api.com/v6/latest/${baseCurrency}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data?.result !== "success" || !data?.rates) return null;
+    const rate = data.rates[targetCurrency];
+    return typeof rate === "number" ? rate : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+async function initCurrency() {
+  const cached = loadCachedCurrency();
+  if (cached) {
+    currentCurrency = cached.currency;
+    currentRate = cached.rate;
+    return;
+  }
+
+  const countryCode = await fetchCountryCode();
+  const rawCurrency = await fetchCurrencyForCountry(countryCode);
+  let currency = normalizeCurrency(rawCurrency, BASE_CURRENCY);
+  let rate = await fetchExchangeRate(BASE_CURRENCY, currency);
+  if (!rate) {
+    currency = BASE_CURRENCY;
+    rate = 1;
+  }
+
+  currentCurrency = currency;
+  currentRate = rate || 1;
+  saveCachedCurrency(currency, currentRate);
 }
 
 function renderStars(rating) {
@@ -500,7 +658,7 @@ function renderProduct(product, reviews) {
   setText(elements.productCategory, product.categoryName || product.category || "");
   setText(elements.productName, displayName);
   setText(elements.productDescription, displayDescription);
-  setText(elements.productPrice, formatMoney(product.price || 0));
+  setText(elements.productPrice, formatPrice(product.price || 0));
   setText(elements.productSku, `ID: ${product.id}`);
 
   const rating =
@@ -571,6 +729,7 @@ function initReveal() {
 }
 
 async function init() {
+  await initCurrency();
   const productId = getProductId();
   if (!productId) {
     renderProduct(null, []);
