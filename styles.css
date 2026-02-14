@@ -522,6 +522,43 @@ main,
   cursor: zoom-in;
 }
 
+.product-page {
+  font-size: 1.05rem;
+}
+
+.product-page .product-side h1 {
+  font-size: clamp(2rem, 3.2vw, 2.8rem);
+  line-height: 1.15;
+}
+
+.product-page .product-detail-meta strong {
+  font-size: 1.6rem;
+}
+
+.product-page .product-description {
+  font-size: 1.05rem;
+}
+
+.product-page .product-actions .btn,
+.product-page .product-auth-actions .btn {
+  font-size: 1rem;
+  padding: 0.85rem 1.1rem;
+}
+
+.product-page .product-qty {
+  font-size: 0.95rem;
+}
+
+.product-page .product-qty input {
+  font-size: 1rem;
+  padding: 0.7rem 0.9rem;
+}
+
+.product-page .review-rating,
+.product-page .review-item {
+  font-size: 1rem;
+}
+
 .product-media-placeholder {
   position: absolute;
   inset: 0;
