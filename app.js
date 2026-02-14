@@ -23,7 +23,7 @@ const getLanguage = () =>
 const BASE_CURRENCY = (PAYPAL_CURRENCY || "USD").toUpperCase();
 const CURRENCY_CACHE_KEY = "techstuf_currency";
 const CURRENCY_CACHE_TTL = 12 * 60 * 60 * 1000;
-const CURRENCY_CACHE_VERSION = 2;
+const CURRENCY_CACHE_VERSION = 3;
 const GEO_OVERRIDE_KEY = "techstuf_geo_override";
 const GEO_OVERRIDE_TTL = 1000 * 60 * 60 * 24 * 14;
 const GEO_SOURCES = [
@@ -197,6 +197,8 @@ const state = {
   lastOrder: loadLastOrder(),
   currency: BASE_CURRENCY,
   fxRate: 1,
+  paypalCurrency: BASE_CURRENCY,
+  paypalRate: 1,
   currencyReady: false,
   activeCategoryId: "all",
   activeSubcategoryId: "all",
@@ -358,6 +360,14 @@ function normalizeCurrency(code, fallback = BASE_CURRENCY) {
   return BASE_CURRENCY;
 }
 
+function normalizeDisplayCurrency(code, fallback = BASE_CURRENCY) {
+  const normalized = typeof code === "string" ? code.trim().toUpperCase() : "";
+  if (normalized && normalized.length === 3) return normalized;
+  const fallbackNormalized = typeof fallback === "string" ? fallback.trim().toUpperCase() : "";
+  if (fallbackNormalized && fallbackNormalized.length === 3) return fallbackNormalized;
+  return BASE_CURRENCY;
+}
+
 function roundAmount(amount, currency) {
   if (!Number.isFinite(amount)) return amount;
   if (ZERO_DECIMAL_CURRENCIES.has(currency)) return Math.round(amount);
@@ -368,6 +378,13 @@ function convertAmount(amount) {
   const base = Number(amount) || 0;
   const rate = Number(state.fxRate) || 1;
   const currency = state.currency || BASE_CURRENCY;
+  return roundAmount(base * rate, currency);
+}
+
+function convertAmountForPayPal(amount) {
+  const base = Number(amount) || 0;
+  const rate = Number(state.paypalRate) || 1;
+  const currency = state.paypalCurrency || BASE_CURRENCY;
   return roundAmount(base * rate, currency);
 }
 
@@ -502,13 +519,15 @@ async function initCurrency() {
   if (cached) {
     state.currency = cached.currency;
     state.fxRate = cached.rate;
+    state.paypalCurrency = normalizeCurrency(state.currency, BASE_CURRENCY);
+    state.paypalRate = state.paypalCurrency === state.currency ? state.fxRate : 1;
     state.currencyReady = true;
     return;
   }
 
   const countryCode = await fetchCountryCode();
   const rawCurrency = await fetchCurrencyForCountry(countryCode);
-  let currency = normalizeCurrency(rawCurrency, BASE_CURRENCY);
+  let currency = normalizeDisplayCurrency(rawCurrency, BASE_CURRENCY);
   let rate = await fetchExchangeRate(BASE_CURRENCY, currency);
   if (!rate) {
     currency = BASE_CURRENCY;
@@ -517,6 +536,8 @@ async function initCurrency() {
 
   state.currency = currency;
   state.fxRate = rate || 1;
+  state.paypalCurrency = normalizeCurrency(currency, BASE_CURRENCY);
+  state.paypalRate = state.paypalCurrency === currency ? state.fxRate : 1;
   state.currencyReady = true;
   saveCachedCurrency(currency, state.fxRate, countryCode);
 }
@@ -981,7 +1002,7 @@ function loadPayPalSdk() {
     }
   }
 
-  const currency = state.currency || BASE_CURRENCY;
+  const currency = state.paypalCurrency || BASE_CURRENCY;
 
   if (document.getElementById("paypal-sdk")) {
     if (paypalCurrencyLoaded === currency && window.paypal) {
@@ -1014,10 +1035,10 @@ function renderPayPalButtons() {
   }
 
   const items = getCartItems();
-  const currency = state.currency || BASE_CURRENCY;
+  const currency = state.paypalCurrency || BASE_CURRENCY;
   const displayItems = items.map((item) => ({
     ...item,
-    price: convertAmount(item.price),
+    price: convertAmountForPayPal(item.price),
   }));
   const total = displayItems.reduce((sum, item) => sum + item.price * item.qty, 0);
   const signature = `${currency}|${total}|${displayItems

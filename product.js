@@ -21,7 +21,7 @@ const getLanguage = () =>
 const BASE_CURRENCY = (PAYPAL_CURRENCY || "USD").toUpperCase();
 const CURRENCY_CACHE_KEY = "techstuf_currency";
 const CURRENCY_CACHE_TTL = 12 * 60 * 60 * 1000;
-const CURRENCY_CACHE_VERSION = 2;
+const CURRENCY_CACHE_VERSION = 3;
 const GEO_OVERRIDE_KEY = "techstuf_geo_override";
 const GEO_OVERRIDE_TTL = 1000 * 60 * 60 * 24 * 14;
 const GEO_SOURCES = [
@@ -308,6 +308,14 @@ function normalizeCurrency(code, fallback = BASE_CURRENCY) {
   return BASE_CURRENCY;
 }
 
+function normalizeDisplayCurrency(code, fallback = BASE_CURRENCY) {
+  const normalized = typeof code === "string" ? code.trim().toUpperCase() : "";
+  if (normalized && normalized.length === 3) return normalized;
+  const fallbackNormalized = typeof fallback === "string" ? fallback.trim().toUpperCase() : "";
+  if (fallbackNormalized && fallbackNormalized.length === 3) return fallbackNormalized;
+  return BASE_CURRENCY;
+}
+
 function loadCachedCurrency() {
   try {
     const raw = localStorage.getItem(CURRENCY_CACHE_KEY);
@@ -444,7 +452,7 @@ async function initCurrency() {
 
   const countryCode = await fetchCountryCode();
   const rawCurrency = await fetchCurrencyForCountry(countryCode);
-  let currency = normalizeCurrency(rawCurrency, BASE_CURRENCY);
+  let currency = normalizeDisplayCurrency(rawCurrency, BASE_CURRENCY);
   let rate = await fetchExchangeRate(BASE_CURRENCY, currency);
   if (!rate) {
     currency = BASE_CURRENCY;
