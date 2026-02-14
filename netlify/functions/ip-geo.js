@@ -4,6 +4,28 @@ const IP_GEO_SOURCES = [
   'https://geolocation-db.com/json/',
 ];
 
+function getClientIp(headers) {
+  const direct = headers['x-nf-client-connection-ip'] || headers['X-NF-CLIENT-CONNECTION-IP'];
+  if (direct && typeof direct === 'string') return direct.trim();
+
+  const forwarded = headers['x-forwarded-for'] || headers['X-FORWARDED-FOR'];
+  if (typeof forwarded === 'string' && forwarded.trim()) {
+    const first = forwarded.split(',')[0].trim();
+    if (first) return first;
+  }
+
+  return null;
+}
+
+function buildIpSources(clientIp) {
+  if (!clientIp) return IP_GEO_SOURCES;
+  return [
+    `https://ipwho.is/${encodeURIComponent(clientIp)}`,
+    `https://ipapi.co/${encodeURIComponent(clientIp)}/json/`,
+    `https://geolocation-db.com/json/${encodeURIComponent(clientIp)}`,
+  ];
+}
+
 function parseIpLocation(data) {
   if (!data || data?.success === false) return null;
 
@@ -146,7 +168,9 @@ exports.handler = async (event) => {
   const netlifyGeo = parseNetlifyGeo(headers);
   if (netlifyGeo) candidates.push(netlifyGeo);
 
-  const results = await Promise.all(IP_GEO_SOURCES.map((url) => fetchIpLocation(url)));
+  const clientIp = getClientIp(headers);
+  const sources = buildIpSources(clientIp);
+  const results = await Promise.all(sources.map((url) => fetchIpLocation(url)));
   for (const result of results) {
     if (result) candidates.push(result);
   }

@@ -21,7 +21,7 @@ const getLanguage = () =>
 const BASE_CURRENCY = (PAYPAL_CURRENCY || "USD").toUpperCase();
 const CURRENCY_CACHE_KEY = "techstuf_currency";
 const CURRENCY_CACHE_TTL = 12 * 60 * 60 * 1000;
-const CURRENCY_CACHE_VERSION = 4;
+const CURRENCY_CACHE_VERSION = 5;
 const GEO_OVERRIDE_KEY = "techstuf_geo_override";
 const COUNTRY_CODE_KEY = "techstuf_country_code";
 const GEO_OVERRIDE_TTL = 1000 * 60 * 60 * 24 * 14;
