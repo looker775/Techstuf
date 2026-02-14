@@ -559,6 +559,39 @@ main,
   font-size: 1rem;
 }
 
+@media (min-width: 980px) {
+  .product-page {
+    font-size: 1.15rem;
+  }
+
+  .product-page .product-side h1 {
+    font-size: clamp(2.4rem, 3.6vw, 3.2rem);
+  }
+
+  .product-page .product-detail-meta strong {
+    font-size: 1.9rem;
+  }
+
+  .product-page .product-description {
+    font-size: 1.15rem;
+  }
+
+  .product-page .product-actions .btn,
+  .product-page .product-auth-actions .btn {
+    font-size: 1.1rem;
+    padding: 1rem 1.2rem;
+  }
+
+  .product-page .product-qty {
+    font-size: 1.05rem;
+  }
+
+  .product-page .product-qty input {
+    font-size: 1.05rem;
+    padding: 0.8rem 1rem;
+  }
+}
+
 .product-media-placeholder {
   position: absolute;
   inset: 0;
