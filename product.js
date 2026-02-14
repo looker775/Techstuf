@@ -21,8 +21,9 @@ const getLanguage = () =>
 const BASE_CURRENCY = (PAYPAL_CURRENCY || "USD").toUpperCase();
 const CURRENCY_CACHE_KEY = "techstuf_currency";
 const CURRENCY_CACHE_TTL = 12 * 60 * 60 * 1000;
-const CURRENCY_CACHE_VERSION = 3;
+const CURRENCY_CACHE_VERSION = 4;
 const GEO_OVERRIDE_KEY = "techstuf_geo_override";
+const COUNTRY_CODE_KEY = "techstuf_country_code";
 const GEO_OVERRIDE_TTL = 1000 * 60 * 60 * 24 * 14;
 const GEO_SOURCES = [
   "/.netlify/functions/ip-geo",
@@ -367,6 +368,17 @@ function loadGeoOverrideCountry() {
   }
 }
 
+function loadStoredCountryCode() {
+  try {
+    const raw = localStorage.getItem(COUNTRY_CODE_KEY);
+    if (!raw) return null;
+    const code = String(raw).trim().toUpperCase();
+    return code.length === 2 ? code : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 function parseCountryCode(data) {
   if (!data || data?.success === false) return null;
   const raw =
@@ -399,12 +411,23 @@ async function fetchJson(url, timeoutMs = 3500) {
 async function fetchCountryCode() {
   const override = loadGeoOverrideCountry();
   if (override) return override;
-  for (const url of GEO_SOURCES) {
-    const data = await fetchJson(url);
+  const candidates = [];
+  const stored = loadStoredCountryCode();
+  if (stored) candidates.push(stored);
+  const responses = await Promise.all(
+    GEO_SOURCES.map((url) => fetchJson(url, url.includes("/functions/") ? 2500 : 3500))
+  );
+  for (const data of responses) {
     const code = parseCountryCode(data);
-    if (code) return code;
+    if (code) candidates.push(code);
   }
-  return null;
+  if (!candidates.length) return null;
+  const counts = new Map();
+  for (const code of candidates) {
+    const key = String(code).toUpperCase();
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 }
 
 async function fetchCurrencyForCountry(countryCode) {

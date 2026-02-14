@@ -88,26 +88,76 @@ async function fetchIpLocation(url) {
   }
 }
 
+function pickBestLocation(locations) {
+  if (!locations.length) return null;
+
+  const cityCounts = new Map();
+  const countryCounts = new Map();
+
+  for (const loc of locations) {
+    if (loc.city) {
+      const key = String(loc.city).trim().toLowerCase();
+      if (key) cityCounts.set(key, (cityCounts.get(key) || 0) + 1);
+    }
+    if (loc.countryCode) {
+      const key = String(loc.countryCode).toUpperCase();
+      countryCounts.set(key, (countryCounts.get(key) || 0) + 1);
+    }
+  }
+
+  const bestCityKey = [...cityCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+  const bestCountry = [...countryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+  let bestCity;
+  let lat;
+  let lng;
+
+  if (bestCityKey) {
+    const match = locations.find((loc) => String(loc.city || '').trim().toLowerCase() === bestCityKey);
+    bestCity = match?.city;
+    if (match?.lat !== undefined && match?.lng !== undefined) {
+      lat = match.lat;
+      lng = match.lng;
+    }
+  }
+
+  if (lat === undefined || lng === undefined) {
+    const latValues = locations.map((loc) => loc.lat).filter((v) => typeof v === 'number');
+    const lngValues = locations.map((loc) => loc.lng).filter((v) => typeof v === 'number');
+    if (latValues.length && lngValues.length) {
+      lat = latValues.reduce((a, b) => a + b, 0) / latValues.length;
+      lng = lngValues.reduce((a, b) => a + b, 0) / lngValues.length;
+    }
+  }
+
+  if (!bestCity && lat === undefined && lng === undefined && !bestCountry) return null;
+
+  return {
+    city: bestCity,
+    countryCode: bestCountry,
+    lat,
+    lng,
+  };
+}
+
 exports.handler = async (event) => {
   const headers = event?.headers || {};
+  const candidates = [];
   const netlifyGeo = parseNetlifyGeo(headers);
-  if (netlifyGeo) {
+  if (netlifyGeo) candidates.push(netlifyGeo);
+
+  const results = await Promise.all(IP_GEO_SOURCES.map((url) => fetchIpLocation(url)));
+  for (const result of results) {
+    if (result) candidates.push(result);
+  }
+
+  const best = pickBestLocation(candidates);
+  if (best) {
     return {
       statusCode: 200,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-      body: JSON.stringify(netlifyGeo),
+      body: JSON.stringify(best),
     };
-  }
-
-  for (const url of IP_GEO_SOURCES) {
-    const location = await fetchIpLocation(url);
-    if (location) {
-      return {
-        statusCode: 200,
-        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
-        body: JSON.stringify(location),
-      };
-    }
   }
 
   return {
