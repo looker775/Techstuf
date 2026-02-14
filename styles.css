@@ -776,6 +776,41 @@ main,
   color: var(--muted);
 }
 
+.order-summary {
+  border: 1px solid rgba(12, 18, 21, 0.08);
+  background: rgba(12, 18, 21, 0.03);
+  border-radius: 16px;
+  padding: 0.9rem;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.order-summary h4 {
+  font-size: 0.95rem;
+}
+
+.order-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.order-summary-grid span {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+
+.order-summary-grid strong {
+  font-size: 0.9rem;
+}
+
+.order-summary-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 .cart-note {
   font-size: 0.8rem;
   color: var(--muted);

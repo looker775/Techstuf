@@ -292,6 +292,30 @@
           <div id="paypalButtons"></div>
           <p class="paypal-note" data-i18n="cart.paypal_note">Secure checkout with PayPal.</p>
         </div>
+        <div class="order-summary" id="orderSummary" hidden>
+          <h4 data-i18n="cart.order_summary_title">Order summary</h4>
+          <div class="order-summary-grid">
+            <div>
+              <span data-i18n="cart.order_id">Order</span>
+              <strong id="orderSummaryId">--</strong>
+            </div>
+            <div>
+              <span data-i18n="cart.order_total">Total</span>
+              <strong id="orderSummaryTotal">--</strong>
+            </div>
+            <div>
+              <span data-i18n="cart.order_email">Email</span>
+              <strong id="orderSummaryEmail">--</strong>
+            </div>
+            <div>
+              <span data-i18n="cart.order_status">Status</span>
+              <strong id="orderSummaryStatus">--</strong>
+            </div>
+          </div>
+          <p class="order-summary-note" data-i18n="cart.order_summary_note">
+            A receipt will be sent by PayPal.
+          </p>
+        </div>
         <button class="btn primary" data-i18n="cart.checkout">Checkout</button>
         <p class="cart-note" data-i18n="cart.taxes_note">Taxes and shipping calculated at checkout.</p>
       </div>

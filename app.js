@@ -152,6 +152,7 @@ const state = {
   products: [],
   filtered: [],
   cart: loadCart(),
+  lastOrder: loadLastOrder(),
   activeCategoryId: "all",
   activeSubcategoryId: "all",
   categoryMode: "product",
@@ -172,6 +173,11 @@ const elements = {
   cartItems: document.getElementById("cartItems"),
   cartTotal: document.getElementById("cartTotal"),
   cartCount: document.getElementById("cartCount"),
+  orderSummary: document.getElementById("orderSummary"),
+  orderSummaryId: document.getElementById("orderSummaryId"),
+  orderSummaryTotal: document.getElementById("orderSummaryTotal"),
+  orderSummaryEmail: document.getElementById("orderSummaryEmail"),
+  orderSummaryStatus: document.getElementById("orderSummaryStatus"),
   overlay: document.getElementById("overlay"),
   toast: document.getElementById("toast"),
   searchInput: document.getElementById("searchInput"),
@@ -210,6 +216,9 @@ const elements = {
 };
 
 let supabaseClient = null;
+let paypalButtonsInstance = null;
+let paypalRenderSignature = "";
+let paypalRenderInProgress = false;
 
 function getAuthStorage() {
   try {
@@ -267,6 +276,20 @@ function formatPrice(value) {
   }).format(value);
 }
 
+function formatMoney(value, currency = PAYPAL_CURRENCY) {
+  const safeCurrency = (currency || PAYPAL_CURRENCY || "USD").toUpperCase();
+  const amount = Number(value) || 0;
+  try {
+    return new Intl.NumberFormat(getLocale(), {
+      style: "currency",
+      currency: safeCurrency,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch (error) {
+    return `${amount.toFixed(2)} ${safeCurrency}`;
+  }
+}
+
 function renderStars(rating) {
   const safeRating = Math.max(0, Math.min(5, Number(rating) || 0));
   const filled = "&#9733;".repeat(Math.round(safeRating));
@@ -283,8 +306,23 @@ function loadCart() {
   }
 }
 
+function loadLastOrder() {
+  try {
+    const stored = localStorage.getItem("techstuf_last_order");
+    return stored ? JSON.parse(stored) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
 function saveCart() {
   localStorage.setItem("techstuf_cart", JSON.stringify(state.cart));
+}
+
+function saveLastOrder(summary) {
+  if (!summary) return;
+  localStorage.setItem("techstuf_last_order", JSON.stringify(summary));
+  state.lastOrder = summary;
 }
 
 function updateCartCount() {
@@ -623,6 +661,25 @@ function removeFromCart(productId) {
   renderCart();
 }
 
+function renderOrderSummary(summary) {
+  if (!elements.orderSummary) return;
+  if (!summary) {
+    elements.orderSummary.hidden = true;
+    return;
+  }
+
+  const orderId = summary.id || "--";
+  const total = formatMoney(summary.total || 0, summary.currency);
+  const email = summary.email || "--";
+  const status = summary.status || "--";
+
+  setText(elements.orderSummaryId, orderId);
+  setText(elements.orderSummaryTotal, total);
+  setText(elements.orderSummaryEmail, email);
+  setText(elements.orderSummaryStatus, status);
+  elements.orderSummary.hidden = false;
+}
+
 function renderCart() {
   const items = Object.values(state.cart);
   elements.cartItems.innerHTML = items
@@ -644,6 +701,7 @@ function renderCart() {
   elements.cartTotal.textContent = formatPrice(total || 0);
   updateCartCount();
   renderPayPalButtons();
+  renderOrderSummary(state.lastOrder);
 }
 
 function loadPayPalSdk() {
@@ -688,68 +746,110 @@ function renderPayPalButtons() {
 
   const items = getCartItems();
   const total = getCartTotal(items);
+  const signature = `${total}|${items
+    .map((item) => `${item.id}:${item.qty}:${item.price}`)
+    .join("|")}`;
 
   if (!items.length || total <= 0) {
     elements.paypalButtons.innerHTML =
       `<p class="paypal-empty">${t("cart.empty", "Add items to checkout with PayPal.")}</p>`;
+    paypalRenderSignature = "";
+    if (paypalButtonsInstance && typeof paypalButtonsInstance.close === "function") {
+      try {
+        paypalButtonsInstance.close();
+      } catch (error) {
+        // ignore
+      }
+    }
     return;
   }
 
+  if (paypalRenderInProgress) {
+    return;
+  }
+
+  if (signature === paypalRenderSignature && paypalButtonsInstance) {
+    return;
+  }
+
+  paypalRenderSignature = signature;
   elements.paypalButtons.innerHTML = "";
 
-  window.paypal
-    .Buttons({
-      style: {
-        layout: "vertical",
-        shape: "pill",
-        color: "gold",
-        label: "paypal",
-      },
-      createOrder: async () => {
-        const response = await fetch("/.netlify/functions/paypal-create-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            currency: PAYPAL_CURRENCY,
-            items,
-            total,
-          }),
-        });
+  paypalRenderInProgress = true;
+  paypalButtonsInstance = window.paypal.Buttons({
+    style: {
+      layout: "vertical",
+      shape: "pill",
+      color: "gold",
+      label: "paypal",
+    },
+    createOrder: async () => {
+      const response = await fetch("/.netlify/functions/paypal-create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currency: PAYPAL_CURRENCY,
+          items,
+          total,
+        }),
+      });
 
-        const data = await response.json();
-        if (!response.ok) {
-          throw new Error(data.error || "Unable to create order");
-        }
-        return data.id;
-      },
-      onApprove: async (data) => {
-        const response = await fetch("/.netlify/functions/paypal-capture-order", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            orderID: data.orderID,
-            items,
-            total,
-            currency: PAYPAL_CURRENCY,
-          }),
-        });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to create order");
+      }
+      return data.id;
+    },
+    onApprove: async (data) => {
+      const response = await fetch("/.netlify/functions/paypal-capture-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderID: data.orderID,
+          items,
+          total,
+          currency: PAYPAL_CURRENCY,
+        }),
+      });
 
-        const capture = await response.json();
-        if (!response.ok) {
-          throw new Error(capture.error || "Capture failed");
-        }
+      const capture = await response.json();
+      if (!response.ok) {
+        throw new Error(capture.error || "Capture failed");
+      }
 
-        state.cart = {};
-        saveCart();
-        renderCart();
-        showToast(t("toast.payment_complete", "Payment complete"));
-      },
-      onError: (error) => {
-        console.error(error);
-        showToast(t("toast.payment_failed", "Payment failed"));
-      },
+      const purchaseUnit = capture?.purchase_units?.[0];
+      const captureInfo = purchaseUnit?.payments?.captures?.[0];
+      const orderSummary = {
+        id: capture?.id || data.orderID || captureInfo?.id || null,
+        status: captureInfo?.status || capture?.status || "captured",
+        total: Number(captureInfo?.amount?.value || purchaseUnit?.amount?.value || total || 0),
+        currency:
+          captureInfo?.amount?.currency_code ||
+          purchaseUnit?.amount?.currency_code ||
+          PAYPAL_CURRENCY,
+        email: capture?.payer?.email_address || null,
+      };
+
+      saveLastOrder(orderSummary);
+
+      state.cart = {};
+      saveCart();
+      renderCart();
+      showToast(t("toast.payment_complete", "Payment complete"));
+    },
+    onError: (error) => {
+      console.error(error);
+      showToast(t("toast.payment_failed", "Payment failed"));
+    },
+  });
+
+  Promise.resolve(paypalButtonsInstance.render(elements.paypalButtons))
+    .catch((error) => {
+      console.error(error);
     })
-    .render(elements.paypalButtons);
+    .finally(() => {
+      paypalRenderInProgress = false;
+    });
 }
 
 function showToast(message) {
