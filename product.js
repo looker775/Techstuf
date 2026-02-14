@@ -153,6 +153,12 @@ const elements = {
   addToCartBtn: document.getElementById("addToCartBtn"),
   productStatus: document.getElementById("productStatus"),
   productSku: document.getElementById("productSku"),
+  productReviewTitle: document.getElementById("productReviewTitle"),
+  productReviewMeta: document.getElementById("productReviewMeta"),
+  productReviewRating: document.getElementById("productReviewRating"),
+  productReviewList: document.getElementById("productReviewList"),
+  productReviewForm: document.getElementById("productReviewForm"),
+  productReviewStatus: document.getElementById("productReviewStatus"),
   toast: document.getElementById("toast"),
 };
 
@@ -320,12 +326,102 @@ async function loadReviews(productId) {
   if (!client || !productId) return [];
 
   const { data, error } = await client
-    .from("reviews")
-    .select("rating")
+    .from("product_reviews")
+    .select("rating, comment, created_at, user_email")
     .eq("product_id", productId);
 
   if (error) return [];
   return data || [];
+}
+
+function renderReviews(product, reviews) {
+  if (!elements.productReviewTitle) return;
+  const average =
+    reviews.length > 0
+      ? reviews.reduce((sum, item) => sum + (item.rating || 0), 0) / reviews.length
+      : null;
+
+  elements.productReviewTitle.textContent = t("review.title_with_product", "{{name}} reviews", {
+    name: product.name,
+  });
+  elements.productReviewMeta.textContent = t("review.count", "{{count}} review(s)", { count: reviews.length });
+  elements.productReviewRating.innerHTML =
+    average === null
+      ? t("rating.none", "No ratings yet")
+      : `${renderStars(average)} ${average.toFixed(1)} / 5`;
+
+  if (!reviews.length) {
+    elements.productReviewList.innerHTML = `<p>${t(
+      "review.no_reviews",
+      "No reviews yet. Be the first to review."
+    )}</p>`;
+  } else {
+    elements.productReviewList.innerHTML = reviews
+      .map((review) => {
+        const comment = review.comment || t("review.no_comment", "No comment provided.");
+        const reviewer = review.user_email || t("review.verified_buyer", "Verified buyer");
+        const dateLabel = review.created_at
+          ? new Date(review.created_at).toLocaleString(getLocale())
+          : "";
+        return `
+          <div class="review-item">
+            <div>${renderStars(review.rating)} ${Number(review.rating).toFixed(1)}</div>
+            <p>${comment}</p>
+            <small>${reviewer}${dateLabel ? ` · ${dateLabel}` : ""}</small>
+          </div>
+        `;
+      })
+      .join("");
+  }
+}
+
+async function submitReview(event) {
+  event.preventDefault();
+  if (!currentProduct) return;
+
+  const client = getSupabaseClient();
+  if (!client) {
+    setText(elements.productReviewStatus, t("toast.auth_missing", "Supabase auth not configured"));
+    return;
+  }
+
+  const { data } = await client.auth.getSession();
+  const session = data?.session;
+  if (!session?.user) {
+    setText(elements.productReviewStatus, t("review_form.login_required", "Please log in to submit a review."));
+    return;
+  }
+
+  const formData = new FormData(event.target);
+  const rating = Number(formData.get("rating") || 0);
+  const comment = String(formData.get("comment") || "").trim();
+
+  if (rating < 1 || rating > 5) {
+    setText(elements.productReviewStatus, t("review.rating_error", "Please select a rating between 1 and 5."));
+    return;
+  }
+
+  const payload = {
+    product_id: currentProduct.id,
+    rating,
+    comment,
+    user_id: session.user.id,
+    user_email: session.user.email,
+  };
+
+  const { error } = await client.from("product_reviews").insert(payload);
+  if (error) {
+    setText(
+      elements.productReviewStatus,
+      t("review.submit_failed", "Submit failed: {{message}}", { message: error.message })
+    );
+    return;
+  }
+
+  setText(elements.productReviewStatus, t("review.submit_success", "Review submitted."));
+  event.target.reset();
+  currentReviews = await loadReviews(currentProduct.id);
+  renderReviews(currentProduct, currentReviews);
 }
 
 function setProductImage(product) {
@@ -362,11 +458,15 @@ function renderProduct(product, reviews) {
   if (!product) {
     if (elements.productDetail) elements.productDetail.hidden = true;
     if (elements.productNotFound) elements.productNotFound.hidden = false;
+    const reviewSection = document.getElementById("productReviews");
+    if (reviewSection) reviewSection.hidden = true;
     return;
   }
 
   if (elements.productDetail) elements.productDetail.hidden = false;
   if (elements.productNotFound) elements.productNotFound.hidden = true;
+  const reviewSection = document.getElementById("productReviews");
+  if (reviewSection) reviewSection.hidden = false;
 
   setProductImage(product);
   setText(elements.productCategory, product.categoryName || product.category || "");
@@ -395,6 +495,8 @@ function renderProduct(product, reviews) {
       elements.viewVideoBtn.hidden = true;
     }
   }
+
+  renderReviews(product, reviews);
 }
 
 function addToCart(product) {
@@ -446,6 +548,10 @@ async function init() {
 
   if (elements.addToCartBtn && currentProduct) {
     elements.addToCartBtn.addEventListener("click", () => addToCart(currentProduct));
+  }
+
+  if (elements.productReviewForm) {
+    elements.productReviewForm.addEventListener("submit", submitReview);
   }
 
   initReveal();
