@@ -1368,6 +1368,14 @@ input[type="file"] {
   transform: translateY(0);
 }
 
+@media (max-width: 900px), (prefers-reduced-motion: reduce) {
+  [data-reveal] {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 @keyframes floatUp {
   0%,
   100% {

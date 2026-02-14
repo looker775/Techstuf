@@ -60,6 +60,8 @@ const PAYPAL_SUPPORTED_CURRENCIES = new Set([
   "USD",
 ]);
 const ZERO_DECIMAL_CURRENCIES = new Set(["HUF", "JPY", "TWD"]);
+const TRANSLATION_CACHE_KEY = "techstuf_translation_cache_v1";
+const TRANSLATION_CACHE_TTL = 1000 * 60 * 60 * 24 * 30;
 
 const DEFAULT_PRODUCTS = [
   {
@@ -389,6 +391,99 @@ function convertAmountForPayPal(amount) {
   return roundAmount(base * rate, currency);
 }
 
+function hashString(value) {
+  const text = String(value || "");
+  let hash = 5381;
+  for (let i = 0; i < text.length; i += 1) {
+    hash = (hash * 33) ^ text.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function loadTranslationCache() {
+  try {
+    const raw = localStorage.getItem(TRANSLATION_CACHE_KEY);
+    if (!raw) return {};
+    const data = JSON.parse(raw);
+    return data && typeof data === "object" ? data : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function saveTranslationCache(cache) {
+  try {
+    localStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(cache));
+  } catch (error) {
+    // ignore
+  }
+}
+
+function readCachedTranslation(text, lang) {
+  const key = `${lang}:${hashString(text)}`;
+  const cache = loadTranslationCache();
+  const entry = cache[key];
+  if (!entry || !entry.value || !entry.updatedAt) return null;
+  if (Date.now() - entry.updatedAt > TRANSLATION_CACHE_TTL) return null;
+  return entry.value;
+}
+
+function writeCachedTranslation(text, lang, value) {
+  const key = `${lang}:${hashString(text)}`;
+  const cache = loadTranslationCache();
+  cache[key] = { value, updatedAt: Date.now() };
+  saveTranslationCache(cache);
+}
+
+const translationInflight = new Map();
+let translationRenderTimer = null;
+
+function scheduleProductRender() {
+  if (translationRenderTimer) return;
+  translationRenderTimer = setTimeout(() => {
+    translationRenderTimer = null;
+    renderProducts();
+  }, 150);
+}
+
+async function translateText(text, targetLang) {
+  if (!text || typeof text !== "string") return null;
+  if (targetLang !== "ru") return null;
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(
+      text
+    )}&langpair=en|ru`;
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) return null;
+    const data = await response.json();
+    const translated = data?.responseData?.translatedText;
+    if (!translated || typeof translated !== "string") return null;
+    if (translated.trim().toLowerCase() === text.trim().toLowerCase()) return null;
+    return translated.trim();
+  } catch (error) {
+    return null;
+  }
+}
+
+function requestTranslation(text, targetLang) {
+  const cacheValue = readCachedTranslation(text, targetLang);
+  if (cacheValue) return cacheValue;
+  const key = `${targetLang}:${hashString(text)}`;
+  if (translationInflight.has(key)) return null;
+  translationInflight.set(key, true);
+  translateText(text, targetLang)
+    .then((translated) => {
+      if (translated) {
+        writeCachedTranslation(text, targetLang, translated);
+        scheduleProductRender();
+      }
+    })
+    .finally(() => {
+      translationInflight.delete(key);
+    });
+  return null;
+}
+
 function loadCachedCurrency() {
   try {
     const raw = localStorage.getItem(CURRENCY_CACHE_KEY);
@@ -572,6 +667,11 @@ function getLocalizedProductField(product, field) {
     const ruValue = product[`${field}_ru`];
     if (ruValue && String(ruValue).trim()) {
       return ruValue;
+    }
+    if (field === "description" && product.description) {
+      const cached = readCachedTranslation(product.description, "ru");
+      if (cached) return cached;
+      requestTranslation(product.description, "ru");
     }
   }
   return product[field] || "";
